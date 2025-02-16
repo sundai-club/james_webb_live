@@ -1,3 +1,4 @@
+// @ts-check
 import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -5,16 +6,25 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-interface Particle {
-  position: [number, number, number];
-  velocity: [number, number, number];
-  color: [number, number, number];
-  mass: number;
-  type: 'star' | 'particle';
-}
+/** @typedef {[number, number, number]} Vector3 */
 
-function generateGalaxy(numStars = 10, numParticles = 5000): { particles: Particle[] } {
-  const particles: Particle[] = [];
+/** 
+ * @typedef {Object} Particle
+ * @property {Vector3} position
+ * @property {Vector3} velocity
+ * @property {Vector3} color
+ * @property {number} mass
+ * @property {'star' | 'particle'} type
+ */
+
+/** 
+ * @param {number} [numStars]
+ * @param {number} [numParticles]
+ * @returns {{ particles: Particle[] }}
+ */
+function generateGalaxy(numStars = 10, numParticles = 5000) {
+  /** @type {Particle[]} */
+  const particles = [];
   
   // Generate massive stars first
   for (let i = 0; i < numStars; i++) {
@@ -27,14 +37,13 @@ function generateGalaxy(numStars = 10, numParticles = 5000): { particles: Partic
     const z = Math.sin(spiralAngle) * radius;
     const y = (Math.random() - 0.5) * 0.2;
     
-    const star: Particle = {
+    particles.push({
       position: [Number(x.toFixed(3)), Number(y.toFixed(3)), Number(z.toFixed(3))],
       velocity: [0, 0, 0],
       color: [1, 0.8, 0.4],
       mass: 100 + Math.random() * 200,
       type: 'star'
-    };
-    particles.push(star);
+    });
   }
 
   // Generate light particles
@@ -59,7 +68,8 @@ function generateGalaxy(numStars = 10, numParticles = 5000): { particles: Partic
     const normalizedRadius = radius / 10;
     const armIndex = Math.floor((spiralAngle / (Math.PI * 2)) * 3);
     
-    let color: [number, number, number];
+    /** @type {Vector3} */
+    let color;
     switch(armIndex % 3) {
       case 0:
         color = [0.5 + normalizedRadius * 0.5, 0.5 + normalizedRadius * 0.5, 0.8 + normalizedRadius * 0.2];
@@ -71,18 +81,17 @@ function generateGalaxy(numStars = 10, numParticles = 5000): { particles: Partic
         color = [0.6 + normalizedRadius * 0.4, 0.3 + normalizedRadius * 0.4, 0.7 + normalizedRadius * 0.3];
     }
     
-    const particle: Particle = {
+    particles.push({
       position: [Number(x.toFixed(3)), Number(y.toFixed(3)), Number(z.toFixed(3))],
       velocity: [
         Number((Math.cos(tangentialAngle) * orbitalSpeed).toFixed(6)), 
         0, 
         Number((Math.sin(tangentialAngle) * orbitalSpeed).toFixed(6))
       ],
-      color: color.map(c => Number(Math.min(1, c).toFixed(3))) as [number, number, number],
+      color: color.map(c => Number(Math.min(1, c).toFixed(3))),
       mass: 0.1,
       type: 'particle'
-    };
-    particles.push(particle);
+    });
   }
 
   return { particles };

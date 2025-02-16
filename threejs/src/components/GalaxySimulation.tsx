@@ -1,15 +1,11 @@
 import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import type { Particle } from '../types';
 
 interface GalaxySimulationProps {
   initialData?: {
-    particles: {
-      position: [number, number, number];
-      velocity: [number, number, number];
-      color: [number, number, number];
-      mass: number;
-    }[];
+    particles: Particle[];
   };
 }
 
@@ -17,6 +13,7 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
   const points = useRef<THREE.Points>(null!);
   const particleCount = initialData?.particles.length || 50000;
   const velocities = useRef<Float32Array>(new Float32Array(particleCount * 3));
+  const sizes = useRef<Float32Array>(new Float32Array(particleCount));
   
   const exportGalaxyData = () => {
     if (!points.current) return;
@@ -34,12 +31,14 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
           positions[i3 + 2] * positions[i3 + 2]
         );
         
-        return {
+        const particle: Particle = {
           position: [positions[i3], positions[i3 + 1], positions[i3 + 2]],
           velocity: [vels[i3], vels[i3 + 1], vels[i3 + 2]],
           color: [colors[i3], colors[i3 + 1], colors[i3 + 2]],
-          mass: 1 / (distanceFromCenter + 0.1)
+          mass: 1 / (distanceFromCenter + 0.1),
+          type: distanceFromCenter < 2 ? 'star' : 'particle'
         };
+        return particle;
       })
     };
 
@@ -63,10 +62,10 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
   const particles = useMemo(() => {
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
+    const particleSizes = sizes.current;
     const vels = velocities.current;
 
     if (initialData) {
-      // Initialize from provided data
       initialData.particles.forEach((particle, i) => {
         const i3 = i * 3;
         positions[i3] = particle.position[0];
@@ -80,47 +79,12 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
         colors[i3] = particle.color[0];
         colors[i3 + 1] = particle.color[1];
         colors[i3 + 2] = particle.color[2];
+
+        particleSizes[i] = particle.type === 'star' ? 0.6 : 0.0001;
       });
-    } else {
-      // Generate new galaxy
-      for (let i = 0; i < particleCount; i++) {
-        const radius = Math.random() * 10;
-        const spinAngle = radius * 2;
-        const branchAngle = (i % 3) * Math.PI * 2 / 3;
-        
-        const randomOffset = 0.15;
-        const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
-        const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
-        const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
-
-        const x = Math.cos(branchAngle + spinAngle) * radius + randomX;
-        const y = randomY * (radius / 10);
-        const z = Math.sin(branchAngle + spinAngle) * radius + randomZ;
-
-        positions[i * 3] = x;
-        positions[i * 3 + 1] = y;
-        positions[i * 3 + 2] = z;
-
-        const distanceFromCenter = Math.sqrt(x * x + z * z);
-        const orbitalSpeed = 1 / Math.sqrt(Math.max(0.1, distanceFromCenter));
-        
-        const angle = Math.atan2(z, x);
-        vels[i * 3] = -Math.sin(angle) * orbitalSpeed * 0.002;
-        vels[i * 3 + 1] = (Math.random() - 0.5) * 0.0001;
-        vels[i * 3 + 2] = Math.cos(angle) * orbitalSpeed * 0.002;
-        
-        const mixedColor = new THREE.Color();
-        const insideColor = new THREE.Color('#ff6030');
-        const outsideColor = new THREE.Color('#1b3984');
-        mixedColor.lerpColors(insideColor, outsideColor, radius / 10);
-        
-        colors[i * 3] = mixedColor.r;
-        colors[i * 3 + 1] = mixedColor.g;
-        colors[i * 3 + 2] = mixedColor.b;
-      }
     }
     
-    return { positions, colors };
+    return { positions, colors, sizes: particleSizes };
   }, [initialData, particleCount]);
 
   useFrame((state) => {
@@ -169,9 +133,14 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
           array={particles.colors}
           itemSize={3}
         />
+        <bufferAttribute
+          attach="attributes-size"
+          count={particleCount}
+          array={particles.sizes}
+          itemSize={1}
+        />
       </bufferGeometry>
       <pointsMaterial
-        size={0.03}
         sizeAttenuation={true}
         vertexColors={true}
         transparent
