@@ -9,10 +9,21 @@ const __dirname = dirname(__filename);
 /** @typedef {[number, number, number]} Vector3 */
 
 /** 
+ * Converts RGB values (0-1) to hex color string
+ * @param {number} r - Red (0-1)
+ * @param {number} g - Green (0-1)
+ * @param {number} b - Blue (0-1)
+ * @returns {string} Hex color string
+ */
+function rgbToHex(r, g, b) {
+  const toHex = (n) => Math.round(n * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/** 
  * @typedef {Object} Particle
  * @property {Vector3} position
- * @property {Vector3} velocity
- * @property {Vector3} color
+ * @property {string} color - hex color string
  * @property {number} mass
  * @property {'star' | 'particle'} type
  */
@@ -39,8 +50,7 @@ function generateGalaxy(numStars = 10, numParticles = 5000) {
     
     particles.push({
       position: [Number(x.toFixed(3)), Number(y.toFixed(3)), Number(z.toFixed(3))],
-      velocity: [0, 0, 0],
-      color: [1, 0.8, 0.4],
+      color: rgbToHex(1, 0.8, 0.4),
       mass: 100 + Math.random() * 200,
       type: 'star'
     });
@@ -61,34 +71,38 @@ function generateGalaxy(numStars = 10, numParticles = 5000) {
     const y = (Math.random() - 0.5) * 0.5;
     
     const distanceFromCenter = Math.sqrt(x * x + z * z);
-    const orbitalSpeed = 0.002 / Math.sqrt(Math.max(0.1, distanceFromCenter));
-    const tangentialAngle = Math.atan2(z, x) + Math.PI / 2;
     
     // Color calculation based on radius and arm
     const normalizedRadius = radius / 10;
     const armIndex = Math.floor((spiralAngle / (Math.PI * 2)) * 3);
     
-    /** @type {Vector3} */
     let color;
     switch(armIndex % 3) {
       case 0:
-        color = [0.5 + normalizedRadius * 0.5, 0.5 + normalizedRadius * 0.5, 0.8 + normalizedRadius * 0.2];
+        color = rgbToHex(
+          0.5 + normalizedRadius * 0.5,
+          0.5 + normalizedRadius * 0.5,
+          0.8 + normalizedRadius * 0.2
+        );
         break;
       case 1:
-        color = [0.8 + normalizedRadius * 0.2, 0.4 + normalizedRadius * 0.4, 0.3 + normalizedRadius * 0.2];
+        color = rgbToHex(
+          0.8 + normalizedRadius * 0.2,
+          0.4 + normalizedRadius * 0.4,
+          0.3 + normalizedRadius * 0.2
+        );
         break;
       default:
-        color = [0.6 + normalizedRadius * 0.4, 0.3 + normalizedRadius * 0.4, 0.7 + normalizedRadius * 0.3];
+        color = rgbToHex(
+          0.6 + normalizedRadius * 0.4,
+          0.3 + normalizedRadius * 0.4,
+          0.7 + normalizedRadius * 0.3
+        );
     }
     
     particles.push({
       position: [Number(x.toFixed(3)), Number(y.toFixed(3)), Number(z.toFixed(3))],
-      velocity: [
-        Number((Math.cos(tangentialAngle) * orbitalSpeed).toFixed(6)), 
-        0, 
-        Number((Math.sin(tangentialAngle) * orbitalSpeed).toFixed(6))
-      ],
-      color: color.map(c => Number(Math.min(1, c).toFixed(3))),
+      color: color,
       mass: 0.1,
       type: 'particle'
     });

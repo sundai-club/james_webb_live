@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Particle } from '../types';
@@ -12,15 +12,12 @@ interface GalaxySimulationProps {
 const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
   const points = useRef<THREE.Points>(null!);
   const particleCount = initialData?.particles.length || 50000;
-  const velocities = useRef<Float32Array>(new Float32Array(particleCount * 3));
   const sizes = useRef<Float32Array>(new Float32Array(particleCount));
-
 
   const particles = useMemo(() => {
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     const particleSizes = sizes.current;
-    const vels = velocities.current;
 
     initialData.particles.forEach((particle, i) => {
       const i3 = i * 3;
@@ -28,13 +25,11 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
       positions[i3 + 1] = particle.position[1];
       positions[i3 + 2] = particle.position[2];
 
-      vels[i3] = particle.velocity[0];
-      vels[i3 + 1] = particle.velocity[1];
-      vels[i3 + 2] = particle.velocity[2];
-
-      colors[i3] = particle.color[0];
-      colors[i3 + 1] = particle.color[1];
-      colors[i3 + 2] = particle.color[2];
+      // Convert hex color to RGB
+      const color = new THREE.Color(particle.color);
+      colors[i3] = color.r;
+      colors[i3 + 1] = color.g;
+      colors[i3 + 2] = color.b;
 
       particleSizes[i] = particle.type === 'star' ? 0.6 : 0.0001;
     });
@@ -46,16 +41,10 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
     if (!points.current) return;
 
     const positions = points.current.geometry.attributes.position.array as Float32Array;
-    const vels = velocities.current;
 
     for (let i = 0; i < particleCount; i++) {
       const i3 = i * 3;
       
-      // Update positions based on velocity
-      positions[i3] += vels[i3];
-      positions[i3 + 1] += vels[i3 + 1];
-      positions[i3 + 2] += vels[i3 + 2];
-
       // Calculate acceleration due to gravity towards center
       const x = positions[i3];
       const y = positions[i3 + 1];
@@ -64,10 +53,14 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
       const distanceFromCenter = Math.sqrt(x * x + y * y + z * z);
       const gravitationalForce = 0.00001 / Math.max(0.1, distanceFromCenter * distanceFromCenter);
 
-      // Apply acceleration
-      vels[i3] -= (x / distanceFromCenter) * gravitationalForce;
-      vels[i3 + 1] -= (y / distanceFromCenter) * gravitationalForce;
-      vels[i3 + 2] -= (z / distanceFromCenter) * gravitationalForce;
+      // Apply simple orbital motion
+      const angle = Math.atan2(z, x);
+      const newAngle = angle + (0.001 / Math.sqrt(distanceFromCenter));
+      const radius = Math.sqrt(x * x + z * z);
+      
+      positions[i3] = Math.cos(newAngle) * radius;
+      positions[i3 + 2] = Math.sin(newAngle) * radius;
+      positions[i3 + 1] *= 0.999; // Slowly settle to the galactic plane
     }
 
     points.current.geometry.attributes.position.needsUpdate = true;
