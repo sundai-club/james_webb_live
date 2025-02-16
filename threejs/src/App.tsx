@@ -5,7 +5,7 @@ import './App.css'
 function App() {
   return (
     <div className="app-container">
-      <Canvas camera={{ position: [0, 25, 0], fov: 60, lookAt: [0, 0, 0] }}>
+      <Canvas camera={{ position: [0, 15, 15], fov: 60 }}>
         <color attach="background" args={['#000']} />
         <GalaxySimulation />
       </Canvas>
