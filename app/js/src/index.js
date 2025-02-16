@@ -1,7 +1,9 @@
+import '../../css/reset.css';
+import '../../css/index.css';
 
-var helpBox = document.getElementById("help-box");
-
-var showHelpBox = function(show) {
+// Export showHelpBox for global use
+window.showHelpBox = function(show) {
+    const helpBox = document.getElementById("help-box");
     if (show) {
         helpBox.classList.remove("hidden");
     }
@@ -10,11 +12,15 @@ var showHelpBox = function(show) {
     }
 };
 
-// show help box for first time
+// Show help box for first time
+const helpBox = document.getElementById("help-box");
 if (!localStorage["iamnop.particles.helpShown"]) {
     helpBox.classList.remove("hidden");
     localStorage["iamnop.particles.helpShown"] = true;
 }
 
-// start app
-var app = new App();
+// Initialize app when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Particle Dream initialized');
+    window.app = new App();
+});
