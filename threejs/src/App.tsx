@@ -9,6 +9,20 @@ function App() {
         <color attach="background" args={['#000']} />
         <GalaxySimulation />
       </Canvas>
+      <button 
+        onClick={() => window.dispatchEvent(new Event('export-galaxy-data'))}
+        style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '20px',
+          zIndex: 1000,
+          background: '#333',
+          color: 'white',
+          border: '1px solid #666'
+        }}
+      >
+        Export Galaxy Data
+      </button>
     </div>
   )
 }

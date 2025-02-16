@@ -5,14 +5,62 @@ import * as THREE from 'three';
 const GalaxySimulation = () => {
   const points = useRef<THREE.Points>(null!);
   const particleCount = 50000;
-  
-  // Store velocities for each particle
   const velocities = useRef<Float32Array>(new Float32Array(particleCount * 3));
   
+  const exportGalaxyData = () => {
+    if (!points.current) return;
+    
+    const positions = points.current.geometry.attributes.position.array as Float32Array;
+    const colors = points.current.geometry.attributes.color.array as Float32Array;
+    const vels = velocities.current;
+    
+    const galaxyData = {
+      particles: Array(particleCount).fill(0).map((_, i) => {
+        const i3 = i * 3;
+        const distanceFromCenter = Math.sqrt(
+          positions[i3] * positions[i3] + 
+          positions[i3 + 1] * positions[i3 + 1] + 
+          positions[i3 + 2] * positions[i3 + 2]
+        );
+        
+        return {
+          position: [positions[i3], positions[i3 + 1], positions[i3 + 2]],
+          velocity: [vels[i3], vels[i3 + 1], vels[i3 + 2]],
+          color: [colors[i3], colors[i3 + 1], colors[i3 + 2]],
+          mass: 1 / (distanceFromCenter + 0.1)
+        };
+      })
+    };
+
+    const jsonContent = JSON.stringify(galaxyData, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'galaxy_state.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  useEffect(() => {
+    window.addEventListener('export-galaxy-data', exportGalaxyData);
+    return () => window.removeEventListener('export-galaxy-data', exportGalaxyData);
+  }, []);
+
   const particles = useMemo(() => {
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     const vels = velocities.current;
+    const galaxyData = {
+      particles: Array(particleCount).fill(0).map(() => ({
+        position: [0, 0, 0],
+        velocity: [0, 0, 0],
+        color: [0, 0, 0],
+        mass: 0
+      }))
+    };
     
     for (let i = 0; i < particleCount; i++) {
       // Calculate spiral galaxy position
@@ -40,9 +88,13 @@ const GalaxySimulation = () => {
       
       // Tangential velocity components
       const angle = Math.atan2(z, x);
-      vels[i * 3] = -Math.sin(angle) * orbitalSpeed * 0.002;     // x velocity
-      vels[i * 3 + 1] = (Math.random() - 0.5) * 0.0001;         // y velocity (slight vertical movement)
-      vels[i * 3 + 2] = Math.cos(angle) * orbitalSpeed * 0.002;  // z velocity
+      const vx = -Math.sin(angle) * orbitalSpeed * 0.002;     // x velocity
+      const vy = (Math.random() - 0.5) * 0.0001;         // y velocity (slight vertical movement)
+      const vz = Math.cos(angle) * orbitalSpeed * 0.002;  // z velocity
+      
+      vels[i * 3] = vx;
+      vels[i * 3 + 1] = vy;
+      vels[i * 3 + 2] = vz;
       
       // Color gradient from center to edge
       const mixedColor = new THREE.Color();
@@ -53,6 +105,14 @@ const GalaxySimulation = () => {
       colors[i * 3] = mixedColor.r;
       colors[i * 3 + 1] = mixedColor.g;
       colors[i * 3 + 2] = mixedColor.b;
+
+      // Store data for JSON export
+      galaxyData.particles[i] = {
+        position: [x, y, z],
+        velocity: [vx, vy, vz],
+        color: [mixedColor.r, mixedColor.g, mixedColor.b],
+        mass: 1 / (distanceFromCenter + 0.1) // Mass increases towards center
+      };
     }
     
     return {
