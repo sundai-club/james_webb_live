@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import type { Particle } from '../types';
 
 interface GalaxySimulationProps {
-  initialData?: {
+  initialData: {
     particles: Particle[];
   };
 }
@@ -14,50 +14,7 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
   const particleCount = initialData?.particles.length || 50000;
   const velocities = useRef<Float32Array>(new Float32Array(particleCount * 3));
   const sizes = useRef<Float32Array>(new Float32Array(particleCount));
-  
-  const exportGalaxyData = () => {
-    if (!points.current) return;
-    
-    const positions = points.current.geometry.attributes.position.array as Float32Array;
-    const colors = points.current.geometry.attributes.color.array as Float32Array;
-    const vels = velocities.current;
-    
-    const galaxyData = {
-      particles: Array(particleCount).fill(0).map((_, i) => {
-        const i3 = i * 3;
-        const distanceFromCenter = Math.sqrt(
-          positions[i3] * positions[i3] + 
-          positions[i3 + 1] * positions[i3 + 1] + 
-          positions[i3 + 2] * positions[i3 + 2]
-        );
-        
-        const particle: Particle = {
-          position: [positions[i3], positions[i3 + 1], positions[i3 + 2]],
-          velocity: [vels[i3], vels[i3 + 1], vels[i3 + 2]],
-          color: [colors[i3], colors[i3 + 1], colors[i3 + 2]],
-          mass: 1 / (distanceFromCenter + 0.1),
-          type: distanceFromCenter < 2 ? 'star' : 'particle'
-        };
-        return particle;
-      })
-    };
 
-    const jsonContent = JSON.stringify(galaxyData, null, 2);
-    const blob = new Blob([jsonContent], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'galaxy_state.json';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  useEffect(() => {
-    window.addEventListener('export-galaxy-data', exportGalaxyData);
-    return () => window.removeEventListener('export-galaxy-data', exportGalaxyData);
-  }, []);
 
   const particles = useMemo(() => {
     const positions = new Float32Array(particleCount * 3);
@@ -65,24 +22,22 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
     const particleSizes = sizes.current;
     const vels = velocities.current;
 
-    if (initialData) {
-      initialData.particles.forEach((particle, i) => {
-        const i3 = i * 3;
-        positions[i3] = particle.position[0];
-        positions[i3 + 1] = particle.position[1];
-        positions[i3 + 2] = particle.position[2];
+    initialData.particles.forEach((particle, i) => {
+      const i3 = i * 3;
+      positions[i3] = particle.position[0];
+      positions[i3 + 1] = particle.position[1];
+      positions[i3 + 2] = particle.position[2];
 
-        vels[i3] = particle.velocity[0];
-        vels[i3 + 1] = particle.velocity[1];
-        vels[i3 + 2] = particle.velocity[2];
+      vels[i3] = particle.velocity[0];
+      vels[i3 + 1] = particle.velocity[1];
+      vels[i3 + 2] = particle.velocity[2];
 
-        colors[i3] = particle.color[0];
-        colors[i3 + 1] = particle.color[1];
-        colors[i3 + 2] = particle.color[2];
+      colors[i3] = particle.color[0];
+      colors[i3 + 1] = particle.color[1];
+      colors[i3 + 2] = particle.color[2];
 
-        particleSizes[i] = particle.type === 'star' ? 0.6 : 0.0001;
-      });
-    }
+      particleSizes[i] = particle.type === 'star' ? 0.6 : 0.0001;
+    });
     
     return { positions, colors, sizes: particleSizes };
   }, [initialData, particleCount]);

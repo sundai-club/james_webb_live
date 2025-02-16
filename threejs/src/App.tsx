@@ -38,23 +38,7 @@ function App() {
           <Canvas camera={{ position: [0, 20, 20], fov: 45 }}>
             <color attach="background" args={['#000']} />
             <GalaxySimulation initialData={galaxyData} />
-          </Canvas>
-          <button 
-            onClick={() => window.dispatchEvent(new Event('export-galaxy-data'))}
-            style={{
-              position: 'absolute',
-              bottom: '20px',
-              left: '20px',
-              zIndex: 1000,
-              background: '#333',
-              color: 'white',
-              border: '1px solid #666',
-              padding: '8px 16px',
-              cursor: 'pointer'
-            }}
-          >
-            Export Galaxy Data
-          </button>
+          </Canvas>          
           <button 
             onClick={() => setGalaxyData(null)}
             style={{
