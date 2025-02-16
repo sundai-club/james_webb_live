@@ -1,184 +1,278 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-interface GalaxySimulationProps {
-  initialData?: {
-    particles: {
-      position: [number, number, number];
-      velocity: [number, number, number];
-      color: [number, number, number];
-      mass: number;
-    }[];
-  };
+interface Star {
+  position: number[];
+  velocity: number[];
+  mass: number;
+  type: 'star';
 }
 
-const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
-  const points = useRef<THREE.Points>(null!);
-  const particleCount = initialData?.particles.length || 50000;
-  const velocities = useRef<Float32Array>(new Float32Array(particleCount * 3));
+interface Particle {
+  position: number[];
+  velocity: number[];
+  color: number[];
+  mass: number;
+  type: 'particle';
+}
+
+interface GalaxyData {
+  stars: Star[];
+  particles: Particle[];
+}
+
+const GalaxySimulation = () => {
+  const starsRef = useRef<THREE.Points>(null!);
+  const particlesRef = useRef<THREE.Points>(null!);
+  const [galaxyData, setGalaxyData] = useState<GalaxyData | null>(null);
   
-  const exportGalaxyData = () => {
-    if (!points.current) return;
-    
-    const positions = points.current.geometry.attributes.position.array as Float32Array;
-    const colors = points.current.geometry.attributes.color.array as Float32Array;
-    const vels = velocities.current;
-    
-    const galaxyData = {
-      particles: Array(particleCount).fill(0).map((_, i) => {
-        const i3 = i * 3;
-        const distanceFromCenter = Math.sqrt(
-          positions[i3] * positions[i3] + 
-          positions[i3 + 1] * positions[i3 + 1] + 
-          positions[i3 + 2] * positions[i3 + 2]
-        );
-        
-        return {
-          position: [positions[i3], positions[i3 + 1], positions[i3 + 2]],
-          velocity: [vels[i3], vels[i3 + 1], vels[i3 + 2]],
-          color: [colors[i3], colors[i3 + 1], colors[i3 + 2]],
-          mass: 1 / (distanceFromCenter + 0.1)
-        };
-      })
+  const starVelocities = useRef<Float32Array>();
+  const particleVelocities = useRef<Float32Array>();
+  const mousePosition = useRef(new THREE.Vector3());
+  const mouseForce = useRef(0);
+  
+  // Handle mouse interaction
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      // Convert mouse coordinates to 3D space
+      const x = (event.clientX / window.innerWidth) * 2 - 1;
+      const y = -(event.clientY / window.innerHeight) * 2 + 1;
+      mousePosition.current.set(x * 10, y * 10, 0);
     };
 
-    const jsonContent = JSON.stringify(galaxyData, null, 2);
-    const blob = new Blob([jsonContent], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'galaxy_state.json';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+    const handleMouseDown = () => {
+      mouseForce.current = 1;
+    };
 
-  useEffect(() => {
-    window.addEventListener('export-galaxy-data', exportGalaxyData);
-    return () => window.removeEventListener('export-galaxy-data', exportGalaxyData);
+    const handleMouseUp = () => {
+      mouseForce.current = 0;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
   }, []);
 
-  const particles = useMemo(() => {
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-    const vels = velocities.current;
-
-    if (initialData) {
-      // Initialize from provided data
-      initialData.particles.forEach((particle, i) => {
-        const i3 = i * 3;
-        positions[i3] = particle.position[0];
-        positions[i3 + 1] = particle.position[1];
-        positions[i3 + 2] = particle.position[2];
-
-        vels[i3] = particle.velocity[0];
-        vels[i3 + 1] = particle.velocity[1];
-        vels[i3 + 2] = particle.velocity[2];
-
-        colors[i3] = particle.color[0];
-        colors[i3 + 1] = particle.color[1];
-        colors[i3 + 2] = particle.color[2];
+  useEffect(() => {
+    fetch('/initial_galaxy.json')
+      .then(res => res.json())
+      .then(data => {
+        setGalaxyData(data);
+        starVelocities.current = new Float32Array(data.stars.length * 3);
+        particleVelocities.current = new Float32Array(data.particles.length * 3);
+        
+        data.stars.forEach((star, i) => {
+          const i3 = i * 3;
+          starVelocities.current![i3] = star.velocity[0];
+          starVelocities.current![i3 + 1] = star.velocity[1];
+          starVelocities.current![i3 + 2] = star.velocity[2];
+        });
+        
+        data.particles.forEach((particle, i) => {
+          const i3 = i * 3;
+          particleVelocities.current![i3] = particle.velocity[0];
+          particleVelocities.current![i3 + 1] = particle.velocity[1];
+          particleVelocities.current![i3 + 2] = particle.velocity[2];
+        });
       });
-    } else {
-      // Generate new galaxy
-      for (let i = 0; i < particleCount; i++) {
-        const radius = Math.random() * 10;
-        const spinAngle = radius * 2;
-        const branchAngle = (i % 3) * Math.PI * 2 / 3;
-        
-        const randomOffset = 0.15;
-        const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
-        const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
-        const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
+  }, []);
 
-        const x = Math.cos(branchAngle + spinAngle) * radius + randomX;
-        const y = randomY * (radius / 10);
-        const z = Math.sin(branchAngle + spinAngle) * radius + randomZ;
+  const { starPositions, starColors, particlePositions, particleColors, starMasses } = useMemo(() => {
+    if (!galaxyData) return {
+      starPositions: new Float32Array(),
+      starColors: new Float32Array(),
+      particlePositions: new Float32Array(),
+      particleColors: new Float32Array(),
+      starMasses: new Float32Array()
+    };
 
-        positions[i * 3] = x;
-        positions[i * 3 + 1] = y;
-        positions[i * 3 + 2] = z;
+    const starPositions = new Float32Array(galaxyData.stars.length * 3);
+    const starColors = new Float32Array(galaxyData.stars.length * 3);
+    const starMasses = new Float32Array(galaxyData.stars.length);
+    const particlePositions = new Float32Array(galaxyData.particles.length * 3);
+    const particleColors = new Float32Array(galaxyData.particles.length * 3);
 
-        const distanceFromCenter = Math.sqrt(x * x + z * z);
-        const orbitalSpeed = 1 / Math.sqrt(Math.max(0.1, distanceFromCenter));
-        
-        const angle = Math.atan2(z, x);
-        vels[i * 3] = -Math.sin(angle) * orbitalSpeed * 0.002;
-        vels[i * 3 + 1] = (Math.random() - 0.5) * 0.0001;
-        vels[i * 3 + 2] = Math.cos(angle) * orbitalSpeed * 0.002;
-        
-        const mixedColor = new THREE.Color();
-        const insideColor = new THREE.Color('#ff6030');
-        const outsideColor = new THREE.Color('#1b3984');
-        mixedColor.lerpColors(insideColor, outsideColor, radius / 10);
-        
-        colors[i * 3] = mixedColor.r;
-        colors[i * 3 + 1] = mixedColor.g;
-        colors[i * 3 + 2] = mixedColor.b;
-      }
-    }
+    galaxyData.stars.forEach((star, i) => {
+      const i3 = i * 3;
+      starPositions[i3] = star.position[0];
+      starPositions[i3 + 1] = star.position[1];
+      starPositions[i3 + 2] = star.position[2];
+      
+      // Brighter stars
+      starColors[i3] = 1.0;     // R
+      starColors[i3 + 1] = 0.95; // G
+      starColors[i3 + 2] = 0.8;  // B
+      
+      starMasses[i] = star.mass;
+    });
+
+    galaxyData.particles.forEach((particle, i) => {
+      const i3 = i * 3;
+      particlePositions[i3] = particle.position[0];
+      particlePositions[i3 + 1] = particle.position[1];
+      particlePositions[i3 + 2] = particle.position[2];
+      
+      particleColors[i3] = particle.color[0];
+      particleColors[i3 + 1] = particle.color[1];
+      particleColors[i3 + 2] = particle.color[2];
+    });
+
+    return {
+      starPositions,
+      starColors,
+      particlePositions,
+      particleColors,
+      starMasses
+    };
+  }, [galaxyData]);
+  
+  useFrame((state, delta) => {
+    if (!galaxyData || !starsRef.current || !particlesRef.current) return;
+
+    const starPos = starsRef.current.geometry.attributes.position.array as Float32Array;
+    const particlePos = particlesRef.current.geometry.attributes.position.array as Float32Array;
     
-    return { positions, colors };
-  }, [initialData, particleCount]);
-
-  useFrame((state) => {
-    if (!points.current) return;
-
-    const positions = points.current.geometry.attributes.position.array as Float32Array;
-    const vels = velocities.current;
-
-    for (let i = 0; i < particleCount; i++) {
+    // Limit delta to prevent instability
+    const cappedDelta = Math.min(delta, 0.1);
+    
+    // Update stars with orbital motion
+    for (let i = 0; i < galaxyData.stars.length; i++) {
       const i3 = i * 3;
       
-      // Update positions based on velocity
-      positions[i3] += vels[i3];
-      positions[i3 + 1] += vels[i3 + 1];
-      positions[i3 + 2] += vels[i3 + 2];
-
-      // Calculate acceleration due to gravity towards center
-      const x = positions[i3];
-      const y = positions[i3 + 1];
-      const z = positions[i3 + 2];
-      
-      const distanceFromCenter = Math.sqrt(x * x + y * y + z * z);
-      const gravitationalForce = 0.00001 / Math.max(0.1, distanceFromCenter * distanceFromCenter);
-
-      // Apply acceleration
-      vels[i3] -= (x / distanceFromCenter) * gravitationalForce;
-      vels[i3 + 1] -= (y / distanceFromCenter) * gravitationalForce;
-      vels[i3 + 2] -= (z / distanceFromCenter) * gravitationalForce;
+      // Update position based on velocity
+      starPos[i3] += starVelocities.current![i3] * cappedDelta;
+      starPos[i3 + 1] += starVelocities.current![i3 + 1] * cappedDelta;
+      starPos[i3 + 2] += starVelocities.current![i3 + 2] * cappedDelta;
     }
+    
+    // Update particles
+    for (let i = 0; i < galaxyData.particles.length; i++) {
+      const i3 = i * 3;
+      
+      // Update position based on velocity
+      particlePos[i3] += particleVelocities.current![i3] * cappedDelta;
+      particlePos[i3 + 1] += particleVelocities.current![i3 + 1] * cappedDelta;
+      particlePos[i3 + 2] += particleVelocities.current![i3 + 2] * cappedDelta;
+      
+      let totalForceX = 0;
+      let totalForceY = 0;
+      let totalForceZ = 0;
+      
+      // Star gravity (only consider closest stars for performance)
+      for (let j = 0; j < Math.min(5, galaxyData.stars.length); j++) {
+        const j3 = j * 3;
+        
+        const dx = starPos[j3] - particlePos[i3];
+        const dy = starPos[j3 + 1] - particlePos[i3 + 1];
+        const dz = starPos[j3 + 2] - particlePos[i3 + 2];
+        
+        const distanceSquared = dx * dx + dy * dy + dz * dz;
+        const distance = Math.sqrt(distanceSquared);
+        
+        // Stronger gravity with smoother falloff
+        const force = (j === 0) 
+          ? (0.000004 * starMasses[j]) / (distanceSquared + 0.1) // Stronger central attraction
+          : (0.000001 * starMasses[j]) / (distanceSquared + 1);  // Normal stars
+        
+        totalForceX += (dx / distance) * force;
+        totalForceY += (dy / distance) * force;
+        totalForceZ += (dz / distance) * force;
+      }
 
-    points.current.geometry.attributes.position.needsUpdate = true;
+      // Mouse interaction
+      if (mouseForce.current !== 0) {
+        const dx = mousePosition.current.x - particlePos[i3];
+        const dy = mousePosition.current.y - particlePos[i3 + 1];
+        const dz = mousePosition.current.z - particlePos[i3 + 2];
+        
+        const distanceSquared = dx * dx + dy * dy + dz * dz;
+        const distance = Math.sqrt(distanceSquared);
+        
+        const mouseStrength = 0.0001;
+        const force = (mouseStrength * mouseForce.current) / (distanceSquared + 0.1);
+        
+        totalForceX += (dx / distance) * force;
+        totalForceY += (dy / distance) * force;
+        totalForceZ += (dz / distance) * force;
+      }
+      
+      // Apply forces with gentler effect
+      particleVelocities.current![i3] += totalForceX * cappedDelta;
+      particleVelocities.current![i3 + 1] += totalForceY * cappedDelta;
+      particleVelocities.current![i3 + 2] += totalForceZ * cappedDelta;
+      
+      // Gentler damping
+      const damping = 0.9999;
+      particleVelocities.current![i3] *= damping;
+      particleVelocities.current![i3 + 1] *= damping;
+      particleVelocities.current![i3 + 2] *= damping;
+    }
+    
+    starsRef.current.geometry.attributes.position.needsUpdate = true;
+    particlesRef.current.geometry.attributes.position.needsUpdate = true;
   });
 
+  if (!galaxyData) return null;
+
   return (
-    <points ref={points}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={particleCount}
-          array={particles.positions}
-          itemSize={3}
+    <>
+      <points ref={starsRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={galaxyData.stars.length}
+            array={starPositions}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            count={galaxyData.stars.length}
+            array={starColors}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.25}
+          sizeAttenuation={true}
+          vertexColors
+          transparent
+          opacity={1}
+          blending={THREE.AdditiveBlending}
         />
-        <bufferAttribute
-          attach="attributes-color"
-          count={particleCount}
-          array={particles.colors}
-          itemSize={3}
+      </points>
+
+      <points ref={particlesRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={galaxyData.particles.length}
+            array={particlePositions}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            count={galaxyData.particles.length}
+            array={particleColors}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.02}
+          sizeAttenuation={true}
+          vertexColors
+          transparent
+          opacity={0.6}
+          blending={THREE.AdditiveBlending}
         />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.03}
-        sizeAttenuation={true}
-        vertexColors
-        transparent
-        opacity={0.6}
-        depthWrite={false}
-      />
-    </points>
+      </points>
+    </>
   );
 };
 
