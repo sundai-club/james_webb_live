@@ -24,7 +24,18 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [showControls, setShowControls] = useState(false);
   const [showBackground, setShowBackground] = useState(true);
-  const [sizeMultiplier, setSizeMultiplier] = useState(1);
+  
+  // Visibility toggles for each type
+  const [showStars, setShowStars] = useState(true);
+  const [showClouds, setShowClouds] = useState(true);
+  const [showCenter, setShowCenter] = useState(true);
+  
+  // Size multipliers for each type
+  const [sizeMultipliers, setSizeMultipliers] = useState({
+    star: 1,
+    cloud: 1,
+    center: 1
+  });
 
   useEffect(() => {
     const updateScale = () => {
@@ -76,6 +87,13 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
 
     // Draw stars and clouds
     points.forEach((point) => {
+      // Skip if type is hidden
+      if (
+        (point.type === 'star' && !showStars) ||
+        (point.type === 'cloud' && !showClouds) ||
+        (point.type === 'center' && !showCenter)
+      ) return;
+
       // Convert from OpenCV (y,x) to canvas (x,y) coordinate system
       const x = point.y;  // OpenCV's y becomes our x
       const y = point.x;  // OpenCV's x becomes our y
@@ -83,10 +101,17 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
       ctx.beginPath();
       const alpha = Math.round(point.intensity / 255 * 255).toString(16).padStart(2, '0');
       ctx.fillStyle = `${point.color}${alpha}`;
-      ctx.arc(x, y, point.size * sizeMultiplier, 0, Math.PI * 2);
+      ctx.arc(x, y, point.size * sizeMultipliers[point.type], 0, Math.PI * 2);
       ctx.fill();
     });
-  }, [points, opacity, imageLoaded, offset, sizeMultiplier]);
+  }, [points, opacity, imageLoaded, offset, sizeMultipliers, showStars, showClouds, showCenter]);
+
+  const updateSizeMultiplier = (type: 'star' | 'cloud' | 'center', value: number) => {
+    setSizeMultipliers(prev => ({
+      ...prev,
+      [type]: value
+    }));
+  };
 
   return (
     <div className="fixed inset-0 w-screen h-screen bg-black">
@@ -130,19 +155,95 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
       {/* Controls panel */}
       {showControls && (
         <div className="fixed right-4 top-16 bg-black/80 p-6 rounded-lg text-white space-y-6 max-w-xs">
+          {/* Visibility toggles */}
           <div className="space-y-2">
-            <h3 className="text-lg">Size Multiplier</h3>
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min="0.1"
-                max="3"
-                step="0.1"
-                value={sizeMultiplier}
-                onChange={(e) => setSizeMultiplier(Number(e.target.value))}
-                className="w-24"
-              />
-              <span className="text-sm">{sizeMultiplier}x</span>
+            <h3 className="text-lg">Visibility</h3>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showStars}
+                  onChange={(e) => setShowStars(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                Stars
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showClouds}
+                  onChange={(e) => setShowClouds(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                Clouds
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showCenter}
+                  onChange={(e) => setShowCenter(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                Black Hole
+              </label>
+            </div>
+          </div>
+
+          {/* Size controls */}
+          <div className="space-y-4">
+            <h3 className="text-lg">Size Controls</h3>
+            <div className="space-y-4">
+              {showStars && (
+                <div className="space-y-1">
+                  <label className="text-sm">Stars</label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="3"
+                      step="0.1"
+                      value={sizeMultipliers.star}
+                      onChange={(e) => updateSizeMultiplier('star', Number(e.target.value))}
+                      className="w-24"
+                    />
+                    <span className="text-sm">{sizeMultipliers.star}x</span>
+                  </div>
+                </div>
+              )}
+              {showClouds && (
+                <div className="space-y-1">
+                  <label className="text-sm">Clouds</label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="3"
+                      step="0.1"
+                      value={sizeMultipliers.cloud}
+                      onChange={(e) => updateSizeMultiplier('cloud', Number(e.target.value))}
+                      className="w-24"
+                    />
+                    <span className="text-sm">{sizeMultipliers.cloud}x</span>
+                  </div>
+                </div>
+              )}
+              {showCenter && (
+                <div className="space-y-1">
+                  <label className="text-sm">Black Hole</label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="3"
+                      step="0.1"
+                      value={sizeMultipliers.center}
+                      onChange={(e) => updateSizeMultiplier('center', Number(e.target.value))}
+                      className="w-24"
+                    />
+                    <span className="text-sm">{sizeMultipliers.center}x</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -94,6 +94,82 @@ def detect_stars(img, min_distance=10, threshold_rel=0.2):
     
     return coordinates, intensities, sizes, colors
 
+def detect_clouds(img, star_points, n_points=100000, min_brightness=30, max_brightness=150):
+    """
+    Detect uniform clouds of particles between stars.
+    
+    Args:
+        img: Input image (2D numpy array)
+        star_points: Array of (x,y) coordinates of detected stars to avoid
+        n_points: Number of cloud particles to sample
+        min_brightness: Minimum brightness threshold for cloud particles
+        max_brightness: Maximum brightness threshold for cloud particles
+    
+    Returns:
+        coordinates: Array of (x,y) coordinates for cloud particles
+        intensities: Array of intensity values for cloud particles
+        sizes: Array of particle sizes
+        colors: Array of particle colors
+    """
+    # Create a mask to exclude areas around stars
+    star_mask = np.zeros_like(img, dtype=bool)
+    for x, y in star_points:
+        # Create a circular mask around each star
+        y, x = int(y), int(x)  # Convert to integers for indexing
+        y_indices, x_indices = np.ogrid[-10:11, -10:11]
+        mask = x_indices**2 + y_indices**2 <= 10**2
+        
+        # Ensure we don't go out of bounds
+        y_start, y_end = max(0, y-10), min(img.shape[0], y+11)
+        x_start, x_end = max(0, x-10), min(img.shape[1], x+11)
+        mask_y_start = 10 - (y - y_start)
+        mask_y_end = 10 + (y_end - y)
+        mask_x_start = 10 - (x - x_start)
+        mask_x_end = 10 + (x_end - x)
+        
+        star_mask[y_start:y_end, x_start:x_end] |= mask[mask_y_start:mask_y_end, mask_x_start:mask_x_end]
+    
+    # Create probability map for cloud particles
+    cloud_mask = (img >= min_brightness) & (img <= max_brightness) & ~star_mask
+    prob_map = np.zeros_like(img, dtype=float)
+    prob_map[cloud_mask] = img[cloud_mask]
+    prob_map = prob_map / prob_map.sum()
+    
+    # Flatten probability map
+    flat_prob = prob_map.ravel()
+    
+    # Generate random indices based on probability distribution
+    indices = np.random.choice(
+        len(flat_prob),
+        size=n_points,
+        p=flat_prob
+    )
+    
+    # Convert flat indices back to 2D coordinates
+    y_coords = indices // img.shape[1]
+    x_coords = indices % img.shape[1]
+    
+    # Get intensities for sampled points
+    intensities = img[y_coords, x_coords]
+    
+    # Calculate sizes (smaller than stars)
+    sizes = 0.5 + (intensities / 255) * 1.5  # Size range: 0.5-2 pixels
+    
+    # Calculate colors (blue/purple hues for nebula effect)
+    # Brighter stars are typically bluer/whiter, dimmer stars are more red/orange
+    colors = []
+    for intensity in intensities:
+        alpha = int((intensity - min_brightness) / (max_brightness - min_brightness) * 255)
+        if intensity > 100:
+            colors.append('#B39DDB')  # Light purple
+        elif intensity > 70:
+            colors.append('#9575CD')  # Medium purple
+        else:
+            colors.append('#7E57C2')  # Dark purple
+    
+    coordinates = np.column_stack((x_coords, y_coords))
+    return coordinates, intensities, sizes, np.array(colors)
+
 def sample_galaxy_points(img, n_points=1000, min_brightness=100):
     # Create probability distribution based on brightness
     prob_map = np.clip(img - min_brightness, 0, 255)
@@ -118,11 +194,16 @@ def sample_galaxy_points(img, n_points=1000, min_brightness=100):
     
     return np.column_stack((y_coords, x_coords)), intensities
 
-def export_to_csv(star_points, star_masses, star_sizes, star_colors, black_hole_point, black_hole_mass, output_path):
+def export_to_csv(star_points, star_masses, star_sizes, star_colors, 
+                 cloud_points, cloud_masses, cloud_sizes, cloud_colors,
+                 black_hole_point, black_hole_mass, output_path):
     # Convert numerical data to float type explicitly
     star_points = star_points.astype(float)
     star_masses = star_masses.astype(float)
     star_sizes = star_sizes.astype(float)
+    cloud_points = cloud_points.astype(float)
+    cloud_masses = cloud_masses.astype(float)
+    cloud_sizes = cloud_sizes.astype(float)
     black_hole_point = black_hole_point.astype(float)
     black_hole_mass = black_hole_mass.astype(float)
     
@@ -135,6 +216,14 @@ def export_to_csv(star_points, star_masses, star_sizes, star_colors, black_hole_
         np.full(len(star_points), 'star', dtype=object)
     ))
     
+    clouds_data = np.column_stack((
+        cloud_points,
+        cloud_masses,
+        cloud_sizes,
+        cloud_colors,
+        np.full(len(cloud_points), 'cloud', dtype=object)
+    ))
+    
     black_hole_data = np.column_stack((
         black_hole_point, 
         black_hole_mass, 
@@ -144,7 +233,7 @@ def export_to_csv(star_points, star_masses, star_sizes, star_colors, black_hole_
     ))
     
     # Combine all data
-    all_points = np.vstack((stars_data, black_hole_data))
+    all_points = np.vstack((stars_data, clouds_data, black_hole_data))
     
     # Save to CSV using pandas for better handling of mixed data types
     import pandas as pd
@@ -163,12 +252,20 @@ if __name__ == "__main__":
     star_points, star_masses, star_sizes, star_colors = detect_stars(img)
     print(f"Detected {len(star_points)} stars")
     
+    # Detect clouds
+    cloud_points, cloud_masses, cloud_sizes, cloud_colors = detect_clouds(img, star_points)
+    print(f"Generated {len(cloud_points)} cloud particles")
+    
     # Export all points to CSV
     export_to_csv(
         star_points, 
         star_masses, 
         star_sizes,
         star_colors,
+        cloud_points,
+        cloud_masses,
+        cloud_sizes,
+        cloud_colors,
         black_hole_point, 
         black_hole_mass, 
         "galaxy_points.csv"
