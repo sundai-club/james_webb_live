@@ -5,10 +5,10 @@ import './App.css'
 
 function App() {
   return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <Canvas camera={{ position: [0, 2, 5], fov: 75 }}>
+    <div className="app-container">
+      <Canvas camera={{ position: [20, 10, 20], fov: 60 }}>
         <color attach="background" args={['#000']} />
-        <OrbitControls />
+        <OrbitControls target={[0, 0, 0]} />
         <GalaxySimulation />
       </Canvas>
     </div>

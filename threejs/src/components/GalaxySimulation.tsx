@@ -14,14 +14,15 @@ const GalaxySimulation = () => {
       // Calculate spiral galaxy position
       const radius = Math.random() * 10;
       const spinAngle = radius * 2;
-      const branchAngle = (i % 2) * Math.PI * 2;
+      const branchAngle = (i % 3) * Math.PI * 2 / 3; // Changed to 3 arms for better distribution
       
-      const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.3;
-      const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.3;
-      const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.3;
+      const randomOffset = 0.15; // Reduced random offset for tighter spiral
+      const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
+      const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
+      const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
 
       positions[i * 3] = Math.cos(branchAngle + spinAngle) * radius + randomX;
-      positions[i * 3 + 1] = randomY;
+      positions[i * 3 + 1] = randomY * (radius / 10); // Scale Y offset based on radius
       positions[i * 3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
       
       // Color gradient from center to edge
