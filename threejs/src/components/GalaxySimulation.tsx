@@ -44,7 +44,7 @@ const GalaxySimulation = () => {
   
   useFrame((state) => {
     if (points.current) {
-      points.current.rotation.y += 0.0005;
+      points.current.rotation.y += 0.0001; // Reduced rotation speed
     }
   });
 
