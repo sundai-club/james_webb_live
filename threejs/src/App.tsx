@@ -16,7 +16,7 @@ interface GalaxyData {
 function App() {
   const [galaxyData, setGalaxyData] = useState<GalaxyData | null>(null);
 
-  const handleGalaxySelect = async (source: string, data?: GalaxyData) => {
+  const handleGalaxySelect = async (source: string) => {
     if (source === 'initial') {
       try {
         const response = await fetch('/initial_galaxy.json');
@@ -26,8 +26,6 @@ function App() {
         console.error('Error loading initial galaxy:', error);
         alert('Failed to load initial galaxy configuration');
       }
-    } else if (source === 'file' && data) {
-      setGalaxyData(data);
     }
   };
 
@@ -37,7 +35,7 @@ function App() {
         <GalaxySelector onSelect={handleGalaxySelect} />
       ) : (
         <>
-          <Canvas camera={{ position: [0, 15, 15], fov: 60 }}>
+          <Canvas camera={{ position: [0, 20, 20], fov: 45 }}>
             <color attach="background" args={['#000']} />
             <GalaxySimulation initialData={galaxyData} />
           </Canvas>
@@ -50,7 +48,9 @@ function App() {
               zIndex: 1000,
               background: '#333',
               color: 'white',
-              border: '1px solid #666'
+              border: '1px solid #666',
+              padding: '8px 16px',
+              cursor: 'pointer'
             }}
           >
             Export Galaxy Data
@@ -64,7 +64,9 @@ function App() {
               zIndex: 1000,
               background: '#333',
               color: 'white',
-              border: '1px solid #666'
+              border: '1px solid #666',
+              padding: '8px 16px',
+              cursor: 'pointer'
             }}
           >
             Back to Selection

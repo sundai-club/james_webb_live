@@ -171,11 +171,12 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.02}
+        size={0.03}
         sizeAttenuation={true}
         vertexColors
         transparent
-        opacity={0.8}
+        opacity={0.6}
+        depthWrite={false}
       />
     </points>
   );
