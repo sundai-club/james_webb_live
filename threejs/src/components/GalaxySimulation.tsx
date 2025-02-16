@@ -9,6 +9,38 @@ interface GalaxySimulationProps {
   };
 }
 
+// Add custom star shader
+const starVertexShader = `
+  attribute float size;
+  varying vec3 vColor;
+  void main() {
+    vColor = color;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = size * (300.0 / -mvPosition.z);
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+const starFragmentShader = `
+  varying vec3 vColor;
+  void main() {
+    vec2 center = gl_PointCoord * 2.0 - 1.0;
+    float dist = length(center);
+    
+    // Create soft sphere effect
+    float strength = 1.0 - smoothstep(0.0, 1.0, dist);
+    
+    // Add glow effect
+    float glow = exp(-2.0 * dist);
+    
+    // Combine core and glow
+    vec3 color = vColor;
+    float alpha = strength * 0.8 + glow * 0.4;
+    
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
 const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
   const starsRef = useRef<THREE.Points>(null!);
   const particlesRef = useRef<THREE.Points>(null!);
@@ -33,9 +65,10 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
     return { stars, particles };
   }, [initialData]);
 
-  const { starPositions, starColors } = useMemo(() => {
+  const { starPositions, starColors, starSizes } = useMemo(() => {
     const positions = new Float32Array(stars.length * 3);
     const colors = new Float32Array(stars.length * 3);
+    const sizes = new Float32Array(stars.length);
 
     stars.forEach((star, i) => {
       const i3 = i * 3;
@@ -47,9 +80,12 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
       colors[i3] = color.r;
       colors[i3 + 1] = color.g;
       colors[i3 + 2] = color.b;
+
+      // Vary star sizes based on mass
+      sizes[i] = star.mass ? Math.min(2.0, Math.max(0.5, star.mass / 200)) : 1.0;
     });
 
-    return { starPositions: positions, starColors: colors };
+    return { starPositions: positions, starColors: colors, starSizes: sizes };
   }, [stars]);
 
   const { particlePositions, particleColors } = useMemo(() => {
@@ -70,6 +106,21 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
 
     return { particlePositions: positions, particleColors: colors };
   }, [particles]);
+
+  // Create custom star material
+  const starMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        scale: { value: 1 }
+      },
+      vertexShader: starVertexShader,
+      fragmentShader: starFragmentShader,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true,
+      vertexColors: true
+    });
+  }, []);
 
   useFrame((state) => {
     if (!particlesRef.current || !starsRef.current) return;
@@ -160,15 +211,14 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
             array={starColors}
             itemSize={3}
           />
+          <bufferAttribute
+            attach="attributes-size"
+            count={stars.length}
+            array={starSizes}
+            itemSize={1}
+          />
         </bufferGeometry>
-        <pointsMaterial
-          size={0.8}
-          sizeAttenuation={true}
-          vertexColors
-          transparent
-          opacity={1}
-          blending={THREE.AdditiveBlending}
-        />
+        <primitive object={starMaterial} attach="material" />
       </points>
 
       <points ref={particlesRef}>
@@ -191,7 +241,7 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
           sizeAttenuation={true}
           vertexColors
           transparent
-          opacity={0.8}
+          opacity={0.6}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
