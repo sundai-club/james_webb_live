@@ -3,14 +3,25 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
-  entry: './app/js/src/index.js',
+  entry: {
+    modern: './src/index.tsx',
+    legacy: './app/js/src/index.js'
+  },
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.js',
+    filename: '[name].bundle.js',
     publicPath: '/'
+  },
+  resolve: {
+    extensions: ['.tsx', '.ts', '.js', '.jsx']
   },
   module: {
     rules: [
+      {
+        test: /\.(ts|tsx)$/,
+        use: 'ts-loader',
+        exclude: /node_modules/
+      },
       {
         test: /\.glsl$/,
         use: 'raw-loader'
@@ -27,7 +38,14 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
+      template: './src/index.html',
+      filename: 'index.html',
+      chunks: ['modern']
+    }),
+    new HtmlWebpackPlugin({
       template: './app/index.html',
+      filename: 'particle.html',
+      chunks: ['legacy'],
       inject: false
     }),
     new CopyWebpackPlugin({
@@ -48,4 +66,4 @@ module.exports = {
     port: 8080,
     hot: true
   }
-}; 
+};

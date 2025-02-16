@@ -4,13 +4,21 @@
   "description": "A Particle Dream - Three.js Simulation",
   "scripts": {
     "start": "webpack serve --mode development",
-    "build": "webpack --mode production"
+    "build": "webpack --mode production",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "three": "^0.70.0",
-    "dat.gui": "^0.7.9"
+    "dat.gui": "^0.7.9",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@types/three": "^0.152.1",
+    "typescript": "^5.1.6",
+    "ts-loader": "^9.4.4",
     "webpack": "^5.88.0",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^4.15.1",
