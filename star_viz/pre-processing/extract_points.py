@@ -20,35 +20,59 @@ def detect_black_hole(img, threshold=240):
     # Find connected components
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(bright_mask.astype(np.uint8))
     
-    # Skip label 0 as it's the background
-    areas = stats[1:, cv2.CC_STAT_AREA]
-    centroids = centroids[1:]
+    if len(stats) <= 1:  # Only background
+        # If no components found, return center of image
+        return np.array([[img.shape[0]/2, img.shape[1]/2]]), np.array([0])
     
-    # Find the component closest to the image center
-    center = np.array([img.shape[0]/2, img.shape[1]/2])
-    distances = np.linalg.norm(centroids - center, axis=1)
+    # Find the largest component
+    areas = stats[1:, cv2.CC_STAT_AREA]  # Skip background
+    largest_comp_idx = np.argmax(areas) + 1  # Add 1 because we skipped background
     
-    # Among the largest components (top 25% by area), choose the one closest to center
-    size_threshold = np.percentile(areas, 75)
-    large_components = areas >= size_threshold
-    if np.any(large_components):
-        closest_large = np.argmin(distances * ~large_components)
-        black_hole_point = centroids[closest_large].reshape(1, 2)
-        black_hole_intensity = np.array([np.max(img[labels == closest_large + 1])])
-    else:
-        # Fallback to just taking the closest component
-        closest = np.argmin(distances)
-        black_hole_point = centroids[closest].reshape(1, 2)
-        black_hole_intensity = np.array([np.max(img[labels == closest + 1])])
+    # Get centroid of largest component
+    black_hole_point = centroids[largest_comp_idx].reshape(1, 2)
+    
+    # Get the maximum intensity in the component
+    black_hole_intensity = np.array([np.max(img[labels == largest_comp_idx])])
     
     return black_hole_point, black_hole_intensity
 
-def detect_bright_stars(img, threshold=240):
-    # Detect very bright points (stars)
-    star_mask = img > threshold
-    star_points = np.column_stack(np.where(star_mask))
-    star_intensities = img[star_mask]
-    return star_points, star_intensities
+def detect_stars(img, min_distance=10, threshold_rel=0.2):
+    """
+    Detect stars in an image using peak local max detection.
+    
+    Args:
+        img: Input image (2D numpy array)
+        min_distance: Minimum distance between peaks
+        threshold_rel: Minimum intensity threshold relative to image max
+    
+    Returns:
+        coordinates: Array of (x,y) coordinates for detected stars
+        intensities: Array of intensity values for detected stars
+    """
+    from skimage.feature import peak_local_max
+    
+    # Normalize image to 0-1 range
+    img_normalized = img.astype(float)
+    img_normalized = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min())
+    
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(img_normalized, (5, 5), 0)
+    
+    # Find local maxima
+    coordinates = peak_local_max(
+        blurred,
+        min_distance=min_distance,
+        threshold_rel=threshold_rel,
+        exclude_border=False
+    )
+    
+    # Get intensities at peak locations
+    intensities = np.array([img[y, x] for y, x in coordinates])
+    
+    # Convert coordinates to (x,y) format
+    coordinates = coordinates[:, [1, 0]]  # Swap columns to get (x,y)
+    
+    return coordinates, intensities
 
 def sample_galaxy_points(img, n_points=1000, min_brightness=100):
     # Create probability distribution based on brightness
@@ -74,47 +98,39 @@ def sample_galaxy_points(img, n_points=1000, min_brightness=100):
     
     return np.column_stack((y_coords, x_coords)), intensities
 
-def export_to_csv(star_points, star_masses, cloud_points, cloud_masses, black_hole_point, black_hole_mass, output_path):
+def export_to_csv(star_points, star_masses, black_hole_point, black_hole_mass, output_path):
     # Convert numerical data to float type explicitly
     star_points = star_points.astype(float)
     star_masses = star_masses.astype(float)
-    cloud_points = cloud_points.astype(float)
-    cloud_masses = cloud_masses.astype(float)
     black_hole_point = black_hole_point.astype(float)
     black_hole_mass = black_hole_mass.astype(float)
     
     # Prepare data for each point type with their masses and type label
     stars_data = np.column_stack((star_points, star_masses, np.full(len(star_points), 'star', dtype=object)))
-    cloud_data = np.column_stack((cloud_points, cloud_masses, np.full(len(cloud_points), 'cloud', dtype=object)))
-    black_hole_data = np.column_stack((black_hole_point, black_hole_mass, ['black_hole']))
+    black_hole_data = np.column_stack((black_hole_point, black_hole_mass, ['center']))
     
     # Combine all data
-    all_points = np.vstack((stars_data, cloud_data, black_hole_data))
+    all_points = np.vstack((stars_data, black_hole_data))
     
     # Save to CSV using pandas for better handling of mixed data types
     import pandas as pd
     df = pd.DataFrame(all_points, columns=['y', 'x', 'intensity', 'type'])
     df.to_csv(output_path, index=False)
 
-# Replace the main execution block
 if __name__ == "__main__":
     # Load and process image
-    image_path = "NGC5468.png"  # Replace with your image path
-    output_path = "galaxy_points.csv"  # CSV output path
+    image_path = "NGC5468.png"
     img = load_and_preprocess_image(image_path)
-
+    
     # Detect black hole
     black_hole_point, black_hole_mass = detect_black_hole(img)
     
-    # Detect bright stars
-    star_points, star_masses = detect_bright_stars(img, threshold=240)
-
-    # Sample points from galaxy arms
-    cloud_points, cloud_masses = sample_galaxy_points(img, n_points=5000, min_brightness=100)
+    # Detect stars
+    star_points, star_masses = detect_stars(img)
+    print(f"Detected {len(star_points)} stars")
     
-    print("Star points:  ", len(star_points))
-    print("Cloud points: ", len(cloud_points))
-
-    # Export to CSV
-    export_to_csv(  star_points, star_masses, cloud_points, cloud_masses, 
-                    black_hole_point, black_hole_mass, output_path)
+    # # Sample additional points for the galaxy
+    # cloud_points, cloud_masses = sample_galaxy_points(img, n_points=2000, min_brightness=100)
+    
+    # Export all points to CSV
+    export_to_csv(star_points, star_masses, black_hole_point, black_hole_mass, "galaxy_points.csv")
