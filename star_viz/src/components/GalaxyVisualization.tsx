@@ -7,12 +7,9 @@ interface Point {
   x: number;
   y: number;
   intensity: number;
-  type: 'star' | 'cloud';
-}
-
-interface VisualSettings {
   size: number;
   color: string;
+  type: 'star' | 'cloud' | 'center';
 }
 
 const ORIGINAL_WIDTH = 3214;
@@ -26,21 +23,8 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [showControls, setShowControls] = useState(false);
-  
-  const [visualSettings, setVisualSettings] = useState({
-    star: {
-      size: 2,
-      color: '#ffffff'
-    },
-    cloud: {
-      size: 4,
-      color: '#4682b4'
-    },
-    center: {
-      size: 8,
-      color: '#ff0000'
-    }
-  });
+  const [showBackground, setShowBackground] = useState(true);
+  const [sizeMultiplier, setSizeMultiplier] = useState(1);
 
   useEffect(() => {
     const updateScale = () => {
@@ -96,41 +80,13 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
       const x = point.y;  // OpenCV's y becomes our x
       const y = point.x;  // OpenCV's x becomes our y
       
-      const settings = visualSettings[point.type];
-      if (!settings) return; // Skip if no settings found for this type
-      
       ctx.beginPath();
       const alpha = Math.round(point.intensity / 255 * 255).toString(16).padStart(2, '0');
-      ctx.fillStyle = `${settings.color}${alpha}`;
-      ctx.arc(x, y, settings.size, 0, Math.PI * 2);
+      ctx.fillStyle = `${point.color}${alpha}`;
+      ctx.arc(x, y, point.size * sizeMultiplier, 0, Math.PI * 2);
       ctx.fill();
     });
-
-    // Find and draw the central point (brightest point near center)
-    const centerPoint = points.reduce((prev, curr) => {
-      const prevDist = Math.pow(prev.y - ORIGINAL_WIDTH/2, 2) + Math.pow(prev.x - ORIGINAL_HEIGHT/2, 2);
-      const currDist = Math.pow(curr.y - ORIGINAL_WIDTH/2, 2) + Math.pow(curr.x - ORIGINAL_HEIGHT/2, 2);
-      return (prevDist < currDist && prev.intensity > 200) ? prev : 
-             (currDist < prevDist && curr.intensity > 200) ? curr : prev;
-    });
-    
-    if (centerPoint) {
-      ctx.beginPath();
-      ctx.fillStyle = visualSettings.center.color;
-      ctx.arc(centerPoint.y, centerPoint.x, visualSettings.center.size, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }, [points, opacity, imageLoaded, offset, visualSettings]);
-
-  const updateSettings = (type: 'star' | 'cloud' | 'center', field: 'size' | 'color', value: string | number) => {
-    setVisualSettings(prev => ({
-      ...prev,
-      [type]: {
-        ...prev[type],
-        [field]: value
-      }
-    }));
-  };
+  }, [points, opacity, imageLoaded, offset, sizeMultiplier]);
 
   return (
     <div className="fixed inset-0 w-screen h-screen bg-black">
@@ -139,7 +95,7 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
           src="/pre-processing/NGC5468.png"
           alt="Galaxy"
           fill
-          className="object-contain"
+          className={`object-contain transition-opacity duration-300 ${showBackground ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setImageLoaded(true)}
           priority
         />
@@ -163,37 +119,32 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
         {showControls ? 'Hide Controls' : 'Show Controls'}
       </button>
 
+      {/* Background toggle button */}
+      <button 
+        onClick={() => setShowBackground(prev => !prev)}
+        className="fixed top-4 right-36 bg-black/50 text-white px-4 py-2 rounded-full hover:bg-black/70"
+      >
+        {showBackground ? 'Hide Background' : 'Show Background'}
+      </button>
+
       {/* Controls panel */}
       {showControls && (
         <div className="fixed right-4 top-16 bg-black/80 p-6 rounded-lg text-white space-y-6 max-w-xs">
-          {Object.entries(visualSettings).map(([type, settings]) => (
-            <div key={type} className="space-y-2">
-              <h3 className="text-lg capitalize">
-                {type === 'center' ? 'Black Hole' : type}
-              </h3>
-              <div className="flex items-center gap-4">
-                <label className="text-sm">Size:</label>
-                <input
-                  type="range"
-                  min="1"
-                  max="20"
-                  value={settings.size}
-                  onChange={(e) => updateSettings(type as any, 'size', Number(e.target.value))}
-                  className="w-24"
-                />
-                <span className="text-sm">{settings.size}px</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <label className="text-sm">Color:</label>
-                <input
-                  type="color"
-                  value={settings.color}
-                  onChange={(e) => updateSettings(type as any, 'color', e.target.value)}
-                  className="w-8 h-8"
-                />
-              </div>
+          <div className="space-y-2">
+            <h3 className="text-lg">Size Multiplier</h3>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="0.1"
+                max="3"
+                step="0.1"
+                value={sizeMultiplier}
+                onChange={(e) => setSizeMultiplier(Number(e.target.value))}
+                className="w-24"
+              />
+              <span className="text-sm">{sizeMultiplier}x</span>
             </div>
-          ))}
+          </div>
         </div>
       )}
 

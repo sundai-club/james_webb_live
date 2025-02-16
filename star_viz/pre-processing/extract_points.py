@@ -48,6 +48,8 @@ def detect_stars(img, min_distance=10, threshold_rel=0.2):
     Returns:
         coordinates: Array of (x,y) coordinates for detected stars
         intensities: Array of intensity values for detected stars
+        sizes: Array of star sizes based on their brightness
+        colors: Array of star colors (temperature-based)
     """
     from skimage.feature import peak_local_max
     
@@ -69,10 +71,28 @@ def detect_stars(img, min_distance=10, threshold_rel=0.2):
     # Get intensities at peak locations
     intensities = np.array([img[y, x] for y, x in coordinates])
     
+    # Calculate star sizes based on intensity (brighter = bigger)
+    sizes = 1 + (intensities / 255) * 4  # Size range: 1-5 pixels
+    
+    # Calculate star colors based on intensity (simulating temperature)
+    # Brighter stars are typically bluer/whiter, dimmer stars are more red/orange
+    colors = []
+    for intensity in intensities:
+        if intensity > 200:  # Very bright stars (white/blue)
+            colors.append('#FFFFFF')
+        elif intensity > 150:  # Bright stars (light blue)
+            colors.append('#A0D8EF')
+        elif intensity > 100:  # Medium stars (yellow)
+            colors.append('#FFE87C')
+        else:  # Dim stars (orange/red)
+            colors.append('#FF9966')
+    
+    colors = np.array(colors)
+    
     # Convert coordinates to (x,y) format
     coordinates = coordinates[:, [1, 0]]  # Swap columns to get (x,y)
     
-    return coordinates, intensities
+    return coordinates, intensities, sizes, colors
 
 def sample_galaxy_points(img, n_points=1000, min_brightness=100):
     # Create probability distribution based on brightness
@@ -98,23 +118,37 @@ def sample_galaxy_points(img, n_points=1000, min_brightness=100):
     
     return np.column_stack((y_coords, x_coords)), intensities
 
-def export_to_csv(star_points, star_masses, black_hole_point, black_hole_mass, output_path):
+def export_to_csv(star_points, star_masses, star_sizes, star_colors, black_hole_point, black_hole_mass, output_path):
     # Convert numerical data to float type explicitly
     star_points = star_points.astype(float)
     star_masses = star_masses.astype(float)
+    star_sizes = star_sizes.astype(float)
     black_hole_point = black_hole_point.astype(float)
     black_hole_mass = black_hole_mass.astype(float)
     
     # Prepare data for each point type with their masses and type label
-    stars_data = np.column_stack((star_points, star_masses, np.full(len(star_points), 'star', dtype=object)))
-    black_hole_data = np.column_stack((black_hole_point, black_hole_mass, ['center']))
+    stars_data = np.column_stack((
+        star_points, 
+        star_masses, 
+        star_sizes,
+        star_colors,
+        np.full(len(star_points), 'star', dtype=object)
+    ))
+    
+    black_hole_data = np.column_stack((
+        black_hole_point, 
+        black_hole_mass, 
+        [8.0],  # Fixed size for black hole
+        ['#FF0000'],  # Fixed color for black hole
+        ['center']
+    ))
     
     # Combine all data
     all_points = np.vstack((stars_data, black_hole_data))
     
     # Save to CSV using pandas for better handling of mixed data types
     import pandas as pd
-    df = pd.DataFrame(all_points, columns=['y', 'x', 'intensity', 'type'])
+    df = pd.DataFrame(all_points, columns=['y', 'x', 'intensity', 'size', 'color', 'type'])
     df.to_csv(output_path, index=False)
 
 if __name__ == "__main__":
@@ -126,11 +160,16 @@ if __name__ == "__main__":
     black_hole_point, black_hole_mass = detect_black_hole(img)
     
     # Detect stars
-    star_points, star_masses = detect_stars(img)
+    star_points, star_masses, star_sizes, star_colors = detect_stars(img)
     print(f"Detected {len(star_points)} stars")
     
-    # # Sample additional points for the galaxy
-    # cloud_points, cloud_masses = sample_galaxy_points(img, n_points=2000, min_brightness=100)
-    
     # Export all points to CSV
-    export_to_csv(star_points, star_masses, black_hole_point, black_hole_mass, "galaxy_points.csv")
+    export_to_csv(
+        star_points, 
+        star_masses, 
+        star_sizes,
+        star_colors,
+        black_hole_point, 
+        black_hole_mass, 
+        "galaxy_points.csv"
+    )
