@@ -2,9 +2,20 @@ import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-const GalaxySimulation = () => {
+interface GalaxySimulationProps {
+  initialData?: {
+    particles: {
+      position: [number, number, number];
+      velocity: [number, number, number];
+      color: [number, number, number];
+      mass: number;
+    }[];
+  };
+}
+
+const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
   const points = useRef<THREE.Points>(null!);
-  const particleCount = 50000;
+  const particleCount = initialData?.particles.length || 50000;
   const velocities = useRef<Float32Array>(new Float32Array(particleCount * 3));
   
   const exportGalaxyData = () => {
@@ -53,73 +64,64 @@ const GalaxySimulation = () => {
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     const vels = velocities.current;
-    const galaxyData = {
-      particles: Array(particleCount).fill(0).map(() => ({
-        position: [0, 0, 0],
-        velocity: [0, 0, 0],
-        color: [0, 0, 0],
-        mass: 0
-      }))
-    };
-    
-    for (let i = 0; i < particleCount; i++) {
-      // Calculate spiral galaxy position
-      const radius = Math.random() * 10;
-      const spinAngle = radius * 2;
-      const branchAngle = (i % 3) * Math.PI * 2 / 3;
-      
-      const randomOffset = 0.15;
-      const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
-      const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
-      const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
 
-      const x = Math.cos(branchAngle + spinAngle) * radius + randomX;
-      const y = randomY * (radius / 10);
-      const z = Math.sin(branchAngle + spinAngle) * radius + randomZ;
+    if (initialData) {
+      // Initialize from provided data
+      initialData.particles.forEach((particle, i) => {
+        const i3 = i * 3;
+        positions[i3] = particle.position[0];
+        positions[i3 + 1] = particle.position[1];
+        positions[i3 + 2] = particle.position[2];
 
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = z;
+        vels[i3] = particle.velocity[0];
+        vels[i3 + 1] = particle.velocity[1];
+        vels[i3 + 2] = particle.velocity[2];
 
-      // Calculate orbital velocity (faster near center, slower at edges)
-      // Using simplified Keplerian orbital mechanics
-      const distanceFromCenter = Math.sqrt(x * x + z * z);
-      const orbitalSpeed = 1 / Math.sqrt(Math.max(0.1, distanceFromCenter)); // Prevent division by zero
-      
-      // Tangential velocity components
-      const angle = Math.atan2(z, x);
-      const vx = -Math.sin(angle) * orbitalSpeed * 0.002;     // x velocity
-      const vy = (Math.random() - 0.5) * 0.0001;         // y velocity (slight vertical movement)
-      const vz = Math.cos(angle) * orbitalSpeed * 0.002;  // z velocity
-      
-      vels[i * 3] = vx;
-      vels[i * 3 + 1] = vy;
-      vels[i * 3 + 2] = vz;
-      
-      // Color gradient from center to edge
-      const mixedColor = new THREE.Color();
-      const insideColor = new THREE.Color('#ff6030');
-      const outsideColor = new THREE.Color('#1b3984');
-      mixedColor.lerpColors(insideColor, outsideColor, radius / 10);
-      
-      colors[i * 3] = mixedColor.r;
-      colors[i * 3 + 1] = mixedColor.g;
-      colors[i * 3 + 2] = mixedColor.b;
+        colors[i3] = particle.color[0];
+        colors[i3 + 1] = particle.color[1];
+        colors[i3 + 2] = particle.color[2];
+      });
+    } else {
+      // Generate new galaxy
+      for (let i = 0; i < particleCount; i++) {
+        const radius = Math.random() * 10;
+        const spinAngle = radius * 2;
+        const branchAngle = (i % 3) * Math.PI * 2 / 3;
+        
+        const randomOffset = 0.15;
+        const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
+        const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
+        const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomOffset;
 
-      // Store data for JSON export
-      galaxyData.particles[i] = {
-        position: [x, y, z],
-        velocity: [vx, vy, vz],
-        color: [mixedColor.r, mixedColor.g, mixedColor.b],
-        mass: 1 / (distanceFromCenter + 0.1) // Mass increases towards center
-      };
+        const x = Math.cos(branchAngle + spinAngle) * radius + randomX;
+        const y = randomY * (radius / 10);
+        const z = Math.sin(branchAngle + spinAngle) * radius + randomZ;
+
+        positions[i * 3] = x;
+        positions[i * 3 + 1] = y;
+        positions[i * 3 + 2] = z;
+
+        const distanceFromCenter = Math.sqrt(x * x + z * z);
+        const orbitalSpeed = 1 / Math.sqrt(Math.max(0.1, distanceFromCenter));
+        
+        const angle = Math.atan2(z, x);
+        vels[i * 3] = -Math.sin(angle) * orbitalSpeed * 0.002;
+        vels[i * 3 + 1] = (Math.random() - 0.5) * 0.0001;
+        vels[i * 3 + 2] = Math.cos(angle) * orbitalSpeed * 0.002;
+        
+        const mixedColor = new THREE.Color();
+        const insideColor = new THREE.Color('#ff6030');
+        const outsideColor = new THREE.Color('#1b3984');
+        mixedColor.lerpColors(insideColor, outsideColor, radius / 10);
+        
+        colors[i * 3] = mixedColor.r;
+        colors[i * 3 + 1] = mixedColor.g;
+        colors[i * 3 + 2] = mixedColor.b;
+      }
     }
     
-    return {
-      positions,
-      colors
-    };
-  }, []);
+    return { positions, colors };
+  }, [initialData, particleCount]);
 
   useFrame((state) => {
     if (!points.current) return;

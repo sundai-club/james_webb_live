@@ -62,3 +62,39 @@ body, html {
   width: 100%;
   height: 100%;
 }
+
+.galaxy-selector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: white;
+  background: #000;
+  gap: 2rem;
+}
+
+.galaxy-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  align-items: center;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+#galaxy-upload {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  color: white;
+}
