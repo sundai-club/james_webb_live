@@ -50,7 +50,7 @@ function generateGalaxy(numStars = 10, numParticles = 5000) {
     
     particles.push({
       position: [Number(x.toFixed(3)), Number(y.toFixed(3)), Number(z.toFixed(3))],
-      color: rgbToHex(1, 0.8, 0.4),
+      color: rgbToHex(1, 1, Math.random() * 0.5), // Bright white to yellowish color
       mass: 100 + Math.random() * 200,
       type: 'star'
     });
