@@ -194,7 +194,7 @@ def sample_galaxy_points(img, n_points=1000, min_brightness=100):
     
     return np.column_stack((y_coords, x_coords)), intensities
 
-def export_to_csv(star_points, star_masses, star_sizes, star_colors, 
+def export_to_json(star_points, star_masses, star_sizes, star_colors, 
                  cloud_points, cloud_masses, cloud_sizes, cloud_colors,
                  black_hole_point, black_hole_mass, output_path):
     # Convert numerical data to float type explicitly
@@ -205,40 +205,73 @@ def export_to_csv(star_points, star_masses, star_sizes, star_colors,
     cloud_masses = cloud_masses.astype(float)
     cloud_sizes = cloud_sizes.astype(float)
     black_hole_point = black_hole_point.astype(float)
-    black_hole_mass = black_hole_mass.astype(float)
     
-    # Prepare data for each point type with their masses and type label
-    stars_data = np.column_stack((
-        star_points, 
-        star_masses, 
-        star_sizes,
-        star_colors,
-        np.full(len(star_points), 'star', dtype=object)
-    ))
+    # Get center coordinates from black hole
+    center_x, center_y = black_hole_point[0]
     
-    clouds_data = np.column_stack((
-        cloud_points,
-        cloud_masses,
-        cloud_sizes,
-        cloud_colors,
-        np.full(len(cloud_points), 'cloud', dtype=object)
-    ))
+    # Calculate max distance from center for normalization
+    max_dist_x = max(
+        abs(star_points[:, 0] - center_x).max(),
+        abs(cloud_points[:, 0] - center_x).max()
+    )
+    max_dist_y = max(
+        abs(star_points[:, 1] - center_y).max(),
+        abs(cloud_points[:, 1] - center_y).max()
+    )
+    max_dist = max(max_dist_x, max_dist_y)
     
-    black_hole_data = np.column_stack((
-        black_hole_point, 
-        black_hole_mass, 
-        [8.0],  # Fixed size for black hole
-        ['#FF0000'],  # Fixed color for black hole
-        ['center']
-    ))
+    # Create particles list
+    particles = []
     
-    # Combine all data
-    all_points = np.vstack((stars_data, clouds_data, black_hole_data))
+    # Convert size to mass using a power law: mass = size^3
+    def size_to_mass(size):
+        return size ** 3
     
-    # Save to CSV using pandas for better handling of mixed data types
-    import pandas as pd
-    df = pd.DataFrame(all_points, columns=['y', 'x', 'intensity', 'size', 'color', 'type'])
-    df.to_csv(output_path, index=False)
+    # Add stars with normalized coordinates
+    for i in range(len(star_points)):
+        particles.append({
+            'position': [
+                float((star_points[i][0] - center_x) / max_dist),
+                float((star_points[i][1] - center_y) / max_dist),
+                0.0
+            ],
+            'intensity': float(star_masses[i]),
+            'mass': float(size_to_mass(star_sizes[i])),
+            'color': star_colors[i],
+            'type': 'star'
+        })
+    
+    # Add clouds with normalized coordinates
+    for i in range(len(cloud_points)):
+        particles.append({
+            'position': [
+                float((cloud_points[i][0] - center_x) / max_dist),
+                float((cloud_points[i][1] - center_y) / max_dist),
+                0.0
+            ],
+            'intensity': float(cloud_masses[i]),
+            'mass': float(size_to_mass(cloud_sizes[i])),
+            'color': cloud_colors[i],
+            'type': 'particle'
+        })
+    
+    # Add black hole with normalized coordinates
+    particles.append({
+        'position': [
+            float((black_hole_point[0][0] - center_x) / max_dist),
+            float((black_hole_point[0][1] - center_y) / max_dist),
+            0.0
+        ],
+        'intensity': float(black_hole_mass[0]),
+        'mass': 8.0,  # Fixed mass for black hole
+        'color': '#FF0000',  # Fixed color for black hole
+        'type': 'center'
+    })
+    
+    # Save to JSON
+    import json
+    with open(output_path, 'w') as f:
+        json.dump({'particles': particles}, f, indent=2)
 
 if __name__ == "__main__":
     # Load and process image
@@ -253,11 +286,11 @@ if __name__ == "__main__":
     print(f"Detected {len(star_points)} stars")
     
     # Detect clouds
-    cloud_points, cloud_masses, cloud_sizes, cloud_colors = detect_clouds(img, star_points)
+    cloud_points, cloud_masses, cloud_sizes, cloud_colors = detect_clouds(img, star_points, n_points=1000)
     print(f"Generated {len(cloud_points)} cloud particles")
     
-    # Export all points to CSV
-    export_to_csv(
+    # Export all points to JSON
+    export_to_json(
         star_points, 
         star_masses, 
         star_sizes,
@@ -268,5 +301,5 @@ if __name__ == "__main__":
         cloud_colors,
         black_hole_point, 
         black_hole_mass, 
-        "galaxy_points.csv"
+        "initial_galaxy.json"
     )
