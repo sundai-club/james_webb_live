@@ -4,18 +4,18 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 
 interface Point {
-  x: number;
-  y: number;
+  position: [number, number, number];
+  imageCoords: [number, number];  // Original image coordinates [x, y]
   intensity: number;
-  size: number;
+  mass: number;
   color: string;
-  type: 'star' | 'cloud' | 'center';
+  type: 'star' | 'particle' | 'center';
 }
 
 const ORIGINAL_WIDTH = 3214;
 const ORIGINAL_HEIGHT = 3233;
 
-export default function GalaxyVisualization({ points }: { points: Point[] }) {
+export default function GalaxyVisualization({ particles }: { particles: Point[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [opacity, setOpacity] = useState(0.8);
@@ -27,13 +27,13 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
   
   // Visibility toggles for each type
   const [showStars, setShowStars] = useState(true);
-  const [showClouds, setShowClouds] = useState(true);
+  const [showParticles, setShowParticles] = useState(true);
   const [showCenter, setShowCenter] = useState(true);
   
   // Size multipliers for each type
   const [sizeMultipliers, setSizeMultipliers] = useState({
     star: 1,
-    cloud: 1,
+    particle: 1,
     center: 1
   });
 
@@ -75,38 +75,53 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
   }, []);
 
   useEffect(() => {
-    if (!canvasRef.current || !imageLoaded) return;
+    const draw = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (!canvas || !ctx) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.globalAlpha = opacity;
-
-    // Draw stars and clouds
-    points.forEach((point) => {
-      // Skip if type is hidden
-      if (
-        (point.type === 'star' && !showStars) ||
-        (point.type === 'cloud' && !showClouds) ||
-        (point.type === 'center' && !showCenter)
-      ) return;
-
-      // Convert from OpenCV (y,x) to canvas (x,y) coordinate system
-      const x = point.y;  // OpenCV's y becomes our x
-      const y = point.x;  // OpenCV's x becomes our y
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      ctx.beginPath();
-      const alpha = Math.round(point.intensity / 255 * 255).toString(16).padStart(2, '0');
-      ctx.fillStyle = `${point.color}${alpha}`;
-      ctx.arc(x, y, point.size * sizeMultipliers[point.type], 0, Math.PI * 2);
-      ctx.fill();
-    });
-  }, [points, opacity, imageLoaded, offset, sizeMultipliers, showStars, showClouds, showCenter]);
+      // Draw points
+      particles.forEach((point) => {
+        // Skip if type is hidden
+        if (
+          (point.type === 'star' && !showStars) ||
+          (point.type === 'particle' && !showParticles) ||
+          (point.type === 'center' && !showCenter)
+        ) {
+          return;
+        }
 
-  const updateSizeMultiplier = (type: 'star' | 'cloud' | 'center', value: number) => {
+        const [x, y] = point.position;
+        
+        // Transform coordinates to screen space
+        const screenX = ((x + 1) / 2) * canvas.width;
+        const screenY = ((y + 1) / 2) * canvas.height;
+        
+        // Calculate size based on mass (using cube root for visual scaling)
+        const baseSize = Math.cbrt(point.mass) * 2;
+        const size = baseSize * (sizeMultipliers[point.type] || 1);
+
+        ctx.beginPath();
+        ctx.arc(
+          screenX,
+          screenY,
+          size,
+          0,
+          2 * Math.PI
+        );
+        ctx.fillStyle = point.color;
+        ctx.globalAlpha = opacity;
+        ctx.fill();
+      });
+    };
+
+    draw();
+  }, [particles, opacity, showStars, showParticles, showCenter, sizeMultipliers]);
+
+  const updateSizeMultiplier = (type: 'star' | 'particle' | 'center', value: number) => {
     setSizeMultipliers(prev => ({
       ...prev,
       [type]: value
@@ -171,11 +186,11 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={showClouds}
-                  onChange={(e) => setShowClouds(e.target.checked)}
+                  checked={showParticles}
+                  onChange={(e) => setShowParticles(e.target.checked)}
                   className="w-4 h-4"
                 />
-                Clouds
+                Particles
               </label>
               <label className="flex items-center gap-2">
                 <input
@@ -210,20 +225,20 @@ export default function GalaxyVisualization({ points }: { points: Point[] }) {
                   </div>
                 </div>
               )}
-              {showClouds && (
+              {showParticles && (
                 <div className="space-y-1">
-                  <label className="text-sm">Clouds</label>
+                  <label className="text-sm">Particles</label>
                   <div className="flex items-center gap-4">
                     <input
                       type="range"
                       min="0.1"
                       max="3"
                       step="0.1"
-                      value={sizeMultipliers.cloud}
-                      onChange={(e) => updateSizeMultiplier('cloud', Number(e.target.value))}
+                      value={sizeMultipliers.particle}
+                      onChange={(e) => updateSizeMultiplier('particle', Number(e.target.value))}
                       className="w-24"
                     />
-                    <span className="text-sm">{sizeMultipliers.cloud}x</span>
+                    <span className="text-sm">{sizeMultipliers.particle}x</span>
                   </div>
                 </div>
               )}

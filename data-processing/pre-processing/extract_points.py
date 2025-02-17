@@ -196,7 +196,7 @@ def sample_galaxy_points(img, n_points=1000, min_brightness=100):
 
 def export_to_json(star_points, star_masses, star_sizes, star_colors, 
                  cloud_points, cloud_masses, cloud_sizes, cloud_colors,
-                 black_hole_point, black_hole_mass, output_path):
+                 black_hole_point, black_hole_mass, output_path, position_scale=10.):
     # Convert numerical data to float type explicitly
     star_points = star_points.astype(float)
     star_masses = star_masses.astype(float)
@@ -231,9 +231,13 @@ def export_to_json(star_points, star_masses, star_sizes, star_colors,
     for i in range(len(star_points)):
         particles.append({
             'position': [
-                float((star_points[i][0] - center_x) / max_dist),
-                float((star_points[i][1] - center_y) / max_dist),
+                position_scale * float((star_points[i][0] - center_x) / max_dist),
+                position_scale * float((star_points[i][1] - center_y) / max_dist),
                 0.0
+            ],
+            'imageCoords': [
+                float(star_points[i][0]),
+                float(star_points[i][1])
             ],
             'intensity': float(star_masses[i]),
             'mass': float(size_to_mass(star_sizes[i])),
@@ -245,9 +249,13 @@ def export_to_json(star_points, star_masses, star_sizes, star_colors,
     for i in range(len(cloud_points)):
         particles.append({
             'position': [
-                float((cloud_points[i][0] - center_x) / max_dist),
-                float((cloud_points[i][1] - center_y) / max_dist),
+                position_scale * float((cloud_points[i][0] - center_x) / max_dist),
+                position_scale * float((cloud_points[i][1] - center_y) / max_dist),
                 0.0
+            ],
+            'imageCoords': [
+                float(cloud_points[i][0]),
+                float(cloud_points[i][1])
             ],
             'intensity': float(cloud_masses[i]),
             'mass': float(size_to_mass(cloud_sizes[i])),
@@ -257,10 +265,10 @@ def export_to_json(star_points, star_masses, star_sizes, star_colors,
     
     # Add black hole with normalized coordinates
     particles.append({
-        'position': [
-            float((black_hole_point[0][0] - center_x) / max_dist),
-            float((black_hole_point[0][1] - center_y) / max_dist),
-            0.0
+        'position': [0.0, 0.0, 0.0],  # Center point
+        'imageCoords': [
+            float(black_hole_point[0][0]),
+            float(black_hole_point[0][1])
         ],
         'intensity': float(black_hole_mass[0]),
         'mass': 8.0,  # Fixed mass for black hole
@@ -286,7 +294,7 @@ if __name__ == "__main__":
     print(f"Detected {len(star_points)} stars")
     
     # Detect clouds
-    cloud_points, cloud_masses, cloud_sizes, cloud_colors = detect_clouds(img, star_points, n_points=1000)
+    cloud_points, cloud_masses, cloud_sizes, cloud_colors = detect_clouds(img, star_points, n_points=100000)
     print(f"Generated {len(cloud_points)} cloud particles")
     
     # Export all points to JSON
