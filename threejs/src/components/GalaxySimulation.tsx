@@ -41,24 +41,45 @@ const starFragmentShader = `
   }
 `;
 
+// Adjust constants for spiral galaxy behavior
+const FRICTION = 0.995;
+const RANDOM_FORCE = 0.00002; // Reduced random force
+const MAX_VELOCITY = 0.5; // Reduced max velocity
+const FORCE_MULTIPLIER = 0.0002;
+const MIN_ORBITAL_SPEED = 0.02;
+const POSITION_MULTIPLIER = 10;
+const SPIRAL_TIGHTNESS = 0.5; // Controls how tight the spiral arms are
+const NUM_ARMS = 4; // Number of spiral arms
+
 const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
   const starsRef = useRef<THREE.Points>(null!);
   const particlesRef = useRef<THREE.Points>(null!);
+  const particleVelocities = useRef<Float32Array | null>(null);
 
   const { stars, particles } = useMemo(() => {
-    if (!initialData) {
-      return { stars: [], particles: [] };
+    if (!initialData?.particles) {
+      // Provide default empty arrays with proper types
+      return {
+        stars: [] as Particle[],
+        particles: [] as Particle[]
+      };
     }
 
     const stars: Particle[] = [];
     const particles: Particle[] = [];
 
-    // Split particles and stars
+    // Split particles and stars, ensure velocity exists
     initialData.particles.forEach(particle => {
+      // Ensure particle has velocity, if not initialize with zeros
+      const particleWithVelocity: Particle = {
+        ...particle,
+        velocity: particle.velocity || [0, 0, 0]
+      };
+
       if (particle.type === 'star') {
-        stars.push(particle);
+        stars.push(particleWithVelocity);
       } else {
-        particles.push(particle);
+        particles.push(particleWithVelocity);
       }
     });
 
@@ -88,23 +109,50 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
     return { starPositions: positions, starColors: colors, starSizes: sizes };
   }, [stars]);
 
-  const { particlePositions, particleColors } = useMemo(() => {
+  const { particlePositions, particleColors, particleVels } = useMemo(() => {
     const positions = new Float32Array(particles.length * 3);
     const colors = new Float32Array(particles.length * 3);
+    const velocities = new Float32Array(particles.length * 3);
 
     particles.forEach((particle, i) => {
       const i3 = i * 3;
-      positions[i3] = particle.position[0];
-      positions[i3 + 1] = particle.position[1];
-      positions[i3 + 2] = particle.position[2];
+      
+      // Calculate spiral arm position
+      const radius = Math.sqrt(
+        particle.position[0] * particle.position[0] + 
+        particle.position[2] * particle.position[2]
+      );
+      const angle = Math.atan2(particle.position[2], particle.position[0]);
+      
+      // Assign to spiral arm
+      const armIndex = Math.floor(angle / (2 * Math.PI) * NUM_ARMS);
+      const armAngle = (armIndex / NUM_ARMS) * Math.PI * 2;
+      const spiralAngle = armAngle + (radius * SPIRAL_TIGHTNESS);
+      
+      // Add some random offset from perfect spiral
+      const randomOffset = (Math.random() - 0.5) * 0.3;
+      const finalAngle = spiralAngle + randomOffset;
 
-      const color = new THREE.Color(particle.color);
-      colors[i3] = color.r;
-      colors[i3 + 1] = color.g;
-      colors[i3 + 2] = color.b;
+      // Position
+      positions[i3] = Math.cos(finalAngle) * radius;
+      positions[i3 + 1] = particle.position[1] * 0.2; // Flatter galaxy
+      positions[i3 + 2] = Math.sin(finalAngle) * radius;
+
+      // Calculate orbital velocity tangent to the spiral
+      const orbitalSpeed = Math.sqrt(0.1 / Math.max(0.5, radius));
+      velocities[i3] = -Math.sin(finalAngle) * orbitalSpeed;
+      velocities[i3 + 1] = 0;
+      velocities[i3 + 2] = Math.cos(finalAngle) * orbitalSpeed;
+
+      // Color based on radius (bluer in arms, redder in center)
+      const normalizedRadius = Math.min(radius / 8, 1);
+      colors[i3] = 0.8 - normalizedRadius * 0.5;     // Red (stronger in center)
+      colors[i3 + 1] = 0.3 + normalizedRadius * 0.2; // Green
+      colors[i3 + 2] = 0.2 + normalizedRadius * 0.6; // Blue (stronger in arms)
     });
 
-    return { particlePositions: positions, particleColors: colors };
+    particleVelocities.current = velocities;
+    return { particlePositions: positions, particleColors: colors, particleVels: velocities };
   }, [particles]);
 
   // Create custom star material
@@ -122,76 +170,98 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
     });
   }, []);
 
-  useFrame((state) => {
-    if (!particlesRef.current || !starsRef.current) return;
+  useFrame((state, delta) => {
+    if (!particlesRef.current || !starsRef.current || !particleVelocities.current) return;
 
     const starPositions = starsRef.current.geometry.attributes.position.array as Float32Array;
-    const particlePositions = particlesRef.current.geometry.attributes.position.array as Float32Array;
+    const particlePos = particlesRef.current.geometry.attributes.position.array as Float32Array;
+    const velocities = particleVelocities.current;
 
-    // Move stars slowly around galactic center
-    for (let s = 0; s < stars.length; s++) {
-      const s3 = s * 3;
-      const x = starPositions[s3];
-      const z = starPositions[s3 + 2];
-      
-      const distanceFromCenter = Math.sqrt(x * x + z * z);
-      const angle = Math.atan2(z, x);
-      
-      // Slower orbital speed for stars
-      const orbitalSpeed = 0.0005 / Math.sqrt(Math.max(0.1, distanceFromCenter));
-      const newAngle = angle + orbitalSpeed;
-      
-      starPositions[s3] = Math.cos(newAngle) * distanceFromCenter;
-      starPositions[s3 + 2] = Math.sin(newAngle) * distanceFromCenter;
-    }
+    const cappedDelta = Math.min(delta, 0.016);
 
-    // Move particles around nearest star
+    // Update particles
     for (let i = 0; i < particles.length; i++) {
       const i3 = i * 3;
       
-      // Find nearest star
-      let nearestStarDist = Infinity;
-      let nearestStarPos = { x: 0, y: 0, z: 0 };
+      const radius = Math.sqrt(
+        particlePos[i3] * particlePos[i3] + 
+        particlePos[i3 + 2] * particlePos[i3 + 2]
+      );
       
-      for (let s = 0; s < stars.length; s++) {
-        const s3 = s * 3;
-        const dx = particlePositions[i3] - starPositions[s3];
-        const dy = particlePositions[i3 + 1] - starPositions[s3 + 1];
-        const dz = particlePositions[i3 + 2] - starPositions[s3 + 2];
-        const dist = dx * dx + dy * dy + dz * dz;
+      // Calculate tangential and radial forces
+      let totalForceX = 0;
+      let totalForceY = 0;
+      let totalForceZ = 0;
+
+      // Gravitational forces from stars
+      for (let j = 0; j < stars.length; j++) {
+        const j3 = j * 3;
         
-        if (dist < nearestStarDist) {
-          nearestStarDist = dist;
-          nearestStarPos = { 
-            x: starPositions[s3], 
-            y: starPositions[s3 + 1], 
-            z: starPositions[s3 + 2] 
-          };
+        const dx = starPositions[j3] - particlePos[i3];
+        const dy = starPositions[j3 + 1] - particlePos[i3 + 1];
+        const dz = starPositions[j3 + 2] - particlePos[i3 + 2];
+        
+        const distanceSquared = dx * dx + dy * dy + dz * dz;
+        const distance = Math.sqrt(distanceSquared);
+        
+        if (distance > 0.1) {
+          // Stronger central force, weaker outer forces
+          const force = FORCE_MULTIPLIER * stars[j].mass / (distanceSquared * Math.sqrt(distance));
+          
+          // Add tangential component to maintain spiral structure
+          const angle = Math.atan2(particlePos[i3 + 2], particlePos[i3]);
+          const tangentialForce = force * 0.5; // Reduced tangential component
+          
+          totalForceX += (dx / distance) * force;
+          totalForceY += (dy / distance) * force;
+          totalForceZ += (dz / distance) * force;
+          
+          // Add spiral motion
+          totalForceX += -Math.sin(angle) * tangentialForce;
+          totalForceZ += Math.cos(angle) * tangentialForce;
         }
       }
 
-      // Calculate orbital motion around nearest star
-      const dx = particlePositions[i3] - nearestStarPos.x;
-      const dy = particlePositions[i3 + 1] - nearestStarPos.y;
-      const dz = particlePositions[i3 + 2] - nearestStarPos.z;
-      
-      const distanceFromStar = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      const angle = Math.atan2(dz, dx);
-      
-      // Orbital speed based on distance from star (Kepler's laws)
-      const orbitalSpeed = 0.002 / Math.sqrt(Math.max(0.1, distanceFromStar));
-      const newAngle = angle + orbitalSpeed;
-      
-      // Update position relative to star
-      particlePositions[i3] = nearestStarPos.x + Math.cos(newAngle) * distanceFromStar;
-      particlePositions[i3 + 2] = nearestStarPos.z + Math.sin(newAngle) * distanceFromStar;
-      
-      // Slowly settle to star's plane
-      const targetY = nearestStarPos.y;
-      particlePositions[i3 + 1] += (targetY - particlePositions[i3 + 1]) * 0.001;
+      // Add very small random force
+      totalForceX += (Math.random() - 0.5) * RANDOM_FORCE;
+      totalForceY += (Math.random() - 0.5) * RANDOM_FORCE * 0.1; // Less vertical randomness
+      totalForceZ += (Math.random() - 0.5) * RANDOM_FORCE;
+
+      // Update velocities with forces
+      velocities[i3] = velocities[i3] * FRICTION + totalForceX * cappedDelta;
+      velocities[i3 + 1] = velocities[i3 + 1] * FRICTION + totalForceY * cappedDelta;
+      velocities[i3 + 2] = velocities[i3 + 2] * FRICTION + totalForceZ * cappedDelta;
+
+      // Stronger vertical damping to maintain disk shape
+      velocities[i3 + 1] *= 0.98;
+
+      // Update positions
+      particlePos[i3] += velocities[i3] * cappedDelta * POSITION_MULTIPLIER;
+      particlePos[i3 + 1] += velocities[i3 + 1] * cappedDelta * POSITION_MULTIPLIER;
+      particlePos[i3 + 2] += velocities[i3 + 2] * cappedDelta * POSITION_MULTIPLIER;
+
+      // Reset particles that go too far
+      if (radius > 12) {
+        // Reset to spiral arm
+        const armIndex = Math.floor(Math.random() * NUM_ARMS);
+        const armAngle = (armIndex / NUM_ARMS) * Math.PI * 2;
+        const newRadius = 4 + Math.random() * 4;
+        const spiralAngle = armAngle + (newRadius * SPIRAL_TIGHTNESS);
+        const randomOffset = (Math.random() - 0.5) * 0.3;
+        const finalAngle = spiralAngle + randomOffset;
+
+        particlePos[i3] = Math.cos(finalAngle) * newRadius;
+        particlePos[i3 + 1] = (Math.random() - 0.5) * 0.2;
+        particlePos[i3 + 2] = Math.sin(finalAngle) * newRadius;
+
+        // Reset velocity to follow spiral
+        const orbitalSpeed = Math.sqrt(0.1 / Math.max(0.5, newRadius));
+        velocities[i3] = -Math.sin(finalAngle) * orbitalSpeed;
+        velocities[i3 + 1] = 0;
+        velocities[i3 + 2] = Math.cos(finalAngle) * orbitalSpeed;
+      }
     }
 
-    starsRef.current.geometry.attributes.position.needsUpdate = true;
     particlesRef.current.geometry.attributes.position.needsUpdate = true;
   });
 

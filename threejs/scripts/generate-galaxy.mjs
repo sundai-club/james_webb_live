@@ -33,7 +33,7 @@ function rgbToHex(r, g, b) {
  * @param {number} [numParticles]
  * @returns {{ particles: Particle[] }}
  */
-function generateGalaxy(numStars = 1000, numParticles = 50000) {
+function generateGalaxy(numStars = 50, numParticles = 5000) {
   /** @type {Particle[]} */
   const particles = [];
   
