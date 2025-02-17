@@ -11,9 +11,10 @@ interface GalaxyData {
 
 interface GalaxySelectorProps {
   onSelect: (source: string, data?: GalaxyData) => void;
+  onBack?: () => void;
 }
 
-const GalaxySelector: React.FC<GalaxySelectorProps> = ({ onSelect }) => {
+const GalaxySelector: React.FC<GalaxySelectorProps> = ({ onSelect, onBack }) => {
   const validateGalaxyData = (data: any): data is GalaxyData => {
     if (!data?.particles?.length) return false;
     return data.particles.every((p: any) => 
@@ -47,6 +48,11 @@ const GalaxySelector: React.FC<GalaxySelectorProps> = ({ onSelect }) => {
 
   return (
     <div className="galaxy-selector">
+      {onBack && (
+        <button className="back-button" onClick={onBack}>
+          ← Back to Information
+        </button>
+      )}
       <h1>Galaxy Simulator</h1>
       <div className="galaxy-options">
         <button onClick={() => onSelect('initial')}>

@@ -39,7 +39,7 @@ const starFragmentShader = `
       discard;
     }
     
-    gl_FragColor = vec4(vColor, intensity * 0.75); // 75% max opacity
+    gl_FragColor = vec4(vColor, intensity * 0.9); // 90% opacity (only 10% transparent)
   }
 `;
 
