@@ -10,6 +10,15 @@ interface GalaxySimulationProps {
   };
 }
 
+// Add this helper function at the top of the file, after the imports
+function gaussianRandom(mean: number, stdDev: number): number {
+  // Box-Muller transform for normal distribution
+  const u1 = Math.random();
+  const u2 = Math.random();
+  const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+  return z0 * stdDev + mean;
+}
+
 // Update the star shaders for better appearance
 const starVertexShader = `
   attribute float size;
@@ -77,7 +86,7 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
       const i3 = i * 3;
       positions[i3] = particle.position[0];
       positions[i3 + 1] = particle.position[1];
-      positions[i3 + 2] = particle.position[2] + (Math.random() - 0.5) * 0.04;
+      positions[i3 + 2] = particle.position[2] + gaussianRandom(0, 0.05); // stdDev of 0.05 gives most values within ±0.15
 
       const color = new THREE.Color(particle.color);
       colors[i3] = color.r;
@@ -98,7 +107,7 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
       const i3 = i * 3;
       positions[i3] = particle.position[0];
       positions[i3 + 1] = particle.position[1];
-      positions[i3 + 2] = particle.position[2] + (Math.random() - 0.5);
+      positions[i3 + 2] = particle.position[2] + gaussianRandom(0, 0.17); // stdDev of 0.17 gives most values within ±0.5
 
       const color = new THREE.Color(particle.color);
       colors[i3] = color.r;

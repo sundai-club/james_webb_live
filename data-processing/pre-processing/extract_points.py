@@ -36,6 +36,34 @@ def detect_black_hole(img, threshold=240):
     
     return black_hole_point, black_hole_intensity
 
+def create_organic_mask(shape, center=None, noise_scale=0.3):
+    """Create an organic-looking mask that's not perfectly circular"""
+    if center is None:
+        center = (shape[0] / 2, shape[1] / 2)
+    
+    y, x = np.ogrid[:shape[0], :shape[1]]
+    
+    # Calculate normalized distance from center (0 to 1)
+    dist = np.sqrt((x - center[1])**2 + (y - center[0])**2)
+    max_dist = np.sqrt((shape[0]/2)**2 + (shape[1]/2)**2)
+    dist_normalized = dist / max_dist
+    
+    # Create perlin-like noise
+    noise = np.random.rand(*shape)
+    noise = cv2.GaussianBlur(noise, (15, 15), 0)
+    noise = (noise - noise.min()) / (noise.max() - noise.min())
+    
+    # Combine distance and noise
+    mask = 1 - dist_normalized + noise_scale * (noise - 0.5)
+    
+    # Normalize to 0-1
+    mask = (mask - mask.min()) / (mask.max() - mask.min())
+    
+    # Apply sigmoid to create smoother falloff
+    mask = 1 / (1 + np.exp(-10 * (mask - 0.5)))
+    
+    return mask
+
 def detect_stars(img, min_distance=10, threshold_rel=0.2):
     """
     Detect stars in an image using peak local max detection.
@@ -53,8 +81,14 @@ def detect_stars(img, min_distance=10, threshold_rel=0.2):
     """
     from skimage.feature import peak_local_max
     
+    # Create organic mask
+    mask = create_organic_mask(img.shape)
+    
+    # Apply mask to image
+    img_masked = img * mask
+    
     # Normalize image to 0-1 range
-    img_normalized = img.astype(float)
+    img_normalized = img_masked.astype(float)
     img_normalized = (img_normalized - img_normalized.min()) / (img_normalized.max() - img_normalized.min())
     
     # Apply Gaussian blur to reduce noise
@@ -68,7 +102,7 @@ def detect_stars(img, min_distance=10, threshold_rel=0.2):
         exclude_border=False
     )
     
-    # Get intensities at peak locations
+    # Get intensities at peak locations from original image
     intensities = np.array([img[y, x] for y, x in coordinates])
     
     # Calculate star sizes based on intensity (brighter = bigger)
@@ -129,10 +163,18 @@ def detect_clouds(img, star_points, n_points=100000, min_brightness=30, max_brig
         
         star_mask[y_start:y_end, x_start:x_end] |= mask[mask_y_start:mask_y_end, mask_x_start:mask_x_end]
     
+    # Create organic mask
+    organic_mask = create_organic_mask(img.shape, noise_scale=0.4)
+    
     # Create probability map for cloud particles
     cloud_mask = (img >= min_brightness) & (img <= max_brightness) & ~star_mask
     prob_map = np.zeros_like(img, dtype=float)
     prob_map[cloud_mask] = img[cloud_mask]
+    
+    # Apply organic mask to probability map
+    prob_map *= organic_mask
+    
+    # Normalize probability map
     prob_map = prob_map / prob_map.sum()
     
     # Flatten probability map
@@ -159,7 +201,6 @@ def detect_clouds(img, star_points, n_points=100000, min_brightness=30, max_brig
     # Brighter stars are typically bluer/whiter, dimmer stars are more red/orange
     colors = []
     for intensity in intensities:
-        alpha = int((intensity - min_brightness) / (max_brightness - min_brightness) * 255)
         if intensity > 100:
             colors.append('#B39DDB')  # Light purple
         elif intensity > 70:
