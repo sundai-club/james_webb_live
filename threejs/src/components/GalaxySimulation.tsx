@@ -207,7 +207,7 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
         enableRotate={true}
         minDistance={5}
         maxDistance={100}
-        position={[20, 0, 0]}
+        position={[12, 0, 0]}
         up={[0, 0, 1]}
       />
       <points ref={starsRef}>

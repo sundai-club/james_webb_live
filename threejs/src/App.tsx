@@ -33,7 +33,7 @@ function App() {
   return (
     <div className="app">
       <div className="canvas-container">
-        <Canvas camera={{ position: [0, 20, 20], fov: 45 }}>
+        <Canvas camera={{ position: [12, 4, 8], fov: 45 }}>
           <color attach="background" args={['#000000']} />
           <GalaxySimulation initialData={galaxyData!} />
         </Canvas>
