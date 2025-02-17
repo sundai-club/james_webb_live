@@ -21,6 +21,31 @@ function rgbToHex(r, g, b) {
 }
 
 /** 
+ * Generates a random star color based on stellar classification
+ * @returns {[number, number, number]} RGB values (0-1)
+ */
+function generateStarColor() {
+  // Probability distribution favoring more common star types
+  const rand = Math.random();
+  
+  if (rand < 0.0001) { // Blue supergiants (very rare)
+    return [0.6, 0.7, 1];
+  } else if (rand < 0.03) { // Blue-white
+    return [0.8, 0.8, 1];
+  } else if (rand < 0.13) { // White
+    return [1, 1, 0.95];
+  } else if (rand < 0.37) { // Yellow-white
+    return [1, 1, 0.8];
+  } else if (rand < 0.76) { // Yellow (like our Sun)
+    return [1, 0.95, 0.6];
+  } else if (rand < 0.88) { // Orange
+    return [1, 0.7, 0.3];
+  } else { // Red
+    return [1, 0.5, 0.2];
+  }
+}
+
+/** 
  * @typedef {Object} Particle
  * @property {Vector3} position
  * @property {string} color - hex color string
@@ -48,9 +73,11 @@ function generateGalaxy(numStars = 1000, numParticles = 50000) {
     const z = Math.sin(spiralAngle) * radius;
     const y = (Math.random() - 0.5) * 0.2;
     
+    const [r, g, b] = generateStarColor();
+    
     particles.push({
       position: [Number(x.toFixed(3)), Number(y.toFixed(3)), Number(z.toFixed(3))],
-      color: rgbToHex(1, 1, Math.random() * 0.5), // Bright white to yellowish color
+      color: rgbToHex(r, g, b),
       mass: 100 + Math.random() * 200,
       type: 'star'
     });
