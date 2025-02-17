@@ -77,7 +77,7 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
       const i3 = i * 3;
       positions[i3] = particle.position[0];
       positions[i3 + 1] = particle.position[1];
-      positions[i3 + 2] = particle.position[2];
+      positions[i3 + 2] = particle.position[2] + (Math.random() - 0.5) * 0.04;
 
       const color = new THREE.Color(particle.color);
       colors[i3] = color.r;
@@ -98,7 +98,7 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
       const i3 = i * 3;
       positions[i3] = particle.position[0];
       positions[i3 + 1] = particle.position[1];
-      positions[i3 + 2] = particle.position[2];
+      positions[i3 + 2] = particle.position[2] + (Math.random() - 0.5);
 
       const color = new THREE.Color(particle.color);
       colors[i3] = color.r;
