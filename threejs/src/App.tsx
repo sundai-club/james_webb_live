@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import GalaxySimulation from './components/GalaxySimulation';
 import LandingPage from './components/LandingPage';
