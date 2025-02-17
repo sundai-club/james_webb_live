@@ -1,5 +1,6 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Particle } from '../types';
 
@@ -44,6 +45,7 @@ const starFragmentShader = `
 const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
   const starsRef = useRef<THREE.Points>(null!);
   const particlesRef = useRef<THREE.Points>(null!);
+  const orbitControlsRef = useRef<any>(null);
 
   const { stars, particles } = useMemo(() => {
     if (!initialData) {
@@ -123,80 +125,23 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
   }, []);
 
   useFrame((state) => {
-    if (!particlesRef.current || !starsRef.current) return;
-
-    const starPositions = starsRef.current.geometry.attributes.position.array as Float32Array;
-    const particlePositions = particlesRef.current.geometry.attributes.position.array as Float32Array;
-
-    // Move stars slowly around galactic center
-    for (let s = 0; s < stars.length; s++) {
-      const s3 = s * 3;
-      const x = starPositions[s3];
-      const z = starPositions[s3 + 2];
-      
-      const distanceFromCenter = Math.sqrt(x * x + z * z);
-      const angle = Math.atan2(z, x);
-      
-      // Slower orbital speed for stars
-      const orbitalSpeed = 0.0005 / Math.sqrt(Math.max(0.1, distanceFromCenter));
-      const newAngle = angle + orbitalSpeed;
-      
-      starPositions[s3] = Math.cos(newAngle) * distanceFromCenter;
-      starPositions[s3 + 2] = Math.sin(newAngle) * distanceFromCenter;
-    }
-
-    // Move particles around nearest star
-    for (let i = 0; i < particles.length; i++) {
-      const i3 = i * 3;
-      
-      // Find nearest star
-      let nearestStarDist = Infinity;
-      let nearestStarPos = { x: 0, y: 0, z: 0 };
-      
-      for (let s = 0; s < stars.length; s++) {
-        const s3 = s * 3;
-        const dx = particlePositions[i3] - starPositions[s3];
-        const dy = particlePositions[i3 + 1] - starPositions[s3 + 1];
-        const dz = particlePositions[i3 + 2] - starPositions[s3 + 2];
-        const dist = dx * dx + dy * dy + dz * dz;
-        
-        if (dist < nearestStarDist) {
-          nearestStarDist = dist;
-          nearestStarPos = { 
-            x: starPositions[s3], 
-            y: starPositions[s3 + 1], 
-            z: starPositions[s3 + 2] 
-          };
-        }
-      }
-
-      // Calculate orbital motion around nearest star
-      const dx = particlePositions[i3] - nearestStarPos.x;
-      const dy = particlePositions[i3 + 1] - nearestStarPos.y;
-      const dz = particlePositions[i3 + 2] - nearestStarPos.z;
-      
-      const distanceFromStar = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      const angle = Math.atan2(dz, dx);
-      
-      // Orbital speed based on distance from star (Kepler's laws)
-      const orbitalSpeed = 0.002 / Math.sqrt(Math.max(0.1, distanceFromStar));
-      const newAngle = angle + orbitalSpeed;
-      
-      // Update position relative to star
-      particlePositions[i3] = nearestStarPos.x + Math.cos(newAngle) * distanceFromStar;
-      particlePositions[i3 + 2] = nearestStarPos.z + Math.sin(newAngle) * distanceFromStar;
-      
-      // Slowly settle to star's plane
-      const targetY = nearestStarPos.y;
-      particlePositions[i3 + 1] += (targetY - particlePositions[i3 + 1]) * 0.001;
-    }
-
-    starsRef.current.geometry.attributes.position.needsUpdate = true;
-    particlesRef.current.geometry.attributes.position.needsUpdate = true;
+    if (!orbitControlsRef.current) return;
+    
+    // Add a gentle automatic rotation
+    orbitControlsRef.current.autoRotateSpeed = 0.5;
+    orbitControlsRef.current.autoRotate = true;
   });
 
   return (
     <>
+      <OrbitControls 
+        ref={orbitControlsRef}
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        minDistance={5}
+        maxDistance={100}
+      />
       <points ref={starsRef}>
         <bufferGeometry>
           <bufferAttribute
