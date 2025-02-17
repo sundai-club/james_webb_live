@@ -1,5 +1,5 @@
 import React from 'react';
-import ngc5584Image from '../assets/ngc5584.jpg'; // You'll need to add this image
+import ngc5584Image from '../assets/ngc5584.jpg';
 
 interface LandingPageProps {
   onStartSimulation: () => void;
@@ -8,40 +8,46 @@ interface LandingPageProps {
 const LandingPage: React.FC<LandingPageProps> = ({ onStartSimulation }) => {
   return (
     <div className="landing-page">
-      <div className="content">
-        <section className="telescope-info">
-          <h1>James Webb Space Telescope</h1>
-          <p>
-            The James Webb Space Telescope (JWST) is NASA's largest and most powerful space telescope
-            ever built. Launched in December 2021, it observes the universe in infrared light,
-            revealing never-before-seen details of cosmic objects, including stars, galaxies,
-            and exoplanets.
-          </p>
-          <p>
-            With its 6.5-meter primary mirror and suite of sophisticated instruments, JWST peers
-            through cosmic dust clouds to reveal the hidden secrets of the universe, from the
-            first galaxies that formed after the Big Bang to the birth of stellar systems.
-          </p>
-        </section>
-
-        <section className="galaxy-info">
-          <h2>NGC 5584: A Spectacular Spiral Galaxy</h2>
-          <p>
-            NGC 5584 is a beautiful spiral galaxy located approximately 72 million light-years away
-            in the constellation Virgo. This galaxy showcases prominent spiral arms adorned with
-            bright blue star clusters and reddish regions of star formation.
-          </p>
-          <p>
-            The galaxy's well-defined spiral structure and numerous star-forming regions make it
-            an excellent example of a typical spiral galaxy, similar to our own Milky Way.
-          </p>
-          <div className="galaxy-image-container" onClick={onStartSimulation}>
-            <img src={ngc5584Image} alt="NGC 5584 Galaxy" className="galaxy-image" />
+      <div className="content-wrapper">
+        <div className="left-panel" onClick={onStartSimulation}>
+          <div className="image-container">
+            <img src={ngc5584Image} alt="NGC 5584 Galaxy" />
             <div className="image-overlay">
-              <span>Click to Launch Interactive Simulation</span>
+              <div className="launch-button">
+                <span className="launch-text">Initialize Simulation</span>
+              </div>
             </div>
           </div>
-        </section>
+        </div>
+        
+        <div className="right-panel">
+          <div className="header">
+            <div className="hal-logo">JWST 2024</div>
+            <p className="status-text">
+              Telescope systems operational. All instruments functioning perfectly.
+            </p>
+          </div>
+
+          <div className="info-section">
+            <h1>James Webb Space Telescope</h1>
+            <p className="description">
+              JWST is humanity's premier space observatory, 
+              both a scientific and engineering marvel. The telescope 
+              observes the universe in infrared, revealing cosmic secrets 
+              hidden from visible light.
+            </p>
+          </div>
+
+          <div className="galaxy-section">
+            <h2>NGC 5584</h2>
+            <p className="subtitle">A Spectacular Spiral Galaxy</p>
+            <p className="description">
+              Located 72 million light-years away in the constellation Virgo, 
+              this beautiful spiral galaxy showcases prominent arms adorned with 
+              bright blue star clusters and reddish regions of star formation.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

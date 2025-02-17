@@ -1,47 +1,39 @@
 .landing-page {
   min-height: 100vh;
-  background-color: #000;
+  background: #000000;
   color: #fff;
-  padding: 2rem;
+  overflow: hidden;
 }
 
-.content {
-  max-width: 1200px;
-  margin: 0 auto;
+.content-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
 }
 
-.telescope-info, .galaxy-info {
-  margin-bottom: 3rem;
-}
-
-h1, h2 {
-  color: #4a9eff;
-  margin-bottom: 1.5rem;
-}
-
-p {
-  line-height: 1.6;
-  margin-bottom: 1rem;
-  font-size: 1.1rem;
-}
-
-.galaxy-image-container {
+.left-panel {
   position: relative;
   cursor: pointer;
   overflow: hidden;
-  border-radius: 8px;
+}
+
+.image-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   transition: transform 0.3s ease;
 }
 
-.galaxy-image-container:hover {
-  transform: scale(1.02);
-}
-
-.galaxy-image {
-  width: 100%;
-  max-width: 800px;
-  display: block;
-  margin: 2rem auto;
+.left-panel:hover .image-container img {
+  transform: scale(1.05);
 }
 
 .image-overlay {
@@ -50,7 +42,7 @@ p {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -58,14 +50,114 @@ p {
   transition: opacity 0.3s ease;
 }
 
-.galaxy-image-container:hover .image-overlay {
+.left-panel:hover .image-overlay {
   opacity: 1;
 }
 
-.image-overlay span {
-  color: white;
-  font-size: 1.5rem;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 4px;
+.right-panel {
+  padding: 4rem;
+  background: #000;
+  overflow-y: auto;
+}
+
+.header {
+  margin-bottom: 4rem;
+}
+
+.hal-logo {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #00a2ff;
+  margin-bottom: 1rem;
+  font-family: monospace;
+}
+
+.status-text {
+  color: #00a2ff;
+  font-size: 1.2rem;
+  font-family: monospace;
+  line-height: 1.6;
+}
+
+h1 {
+  font-size: 3rem;
+  color: #fff;
+  margin-bottom: 2rem;
+  font-weight: 300;
+}
+
+h2 {
+  font-size: 2.5rem;
+  color: #fff;
+  margin-bottom: 1rem;
+  font-weight: 300;
+}
+
+.subtitle {
+  color: #00a2ff;
+  font-size: 1.4rem;
+  margin-bottom: 2rem;
+  font-family: monospace;
+}
+
+.description {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 2rem;
+  max-width: 800px;
+}
+
+.info-section {
+  margin-bottom: 4rem;
+}
+
+.launch-button {
+  border: 2px solid #00a2ff;
+  padding: 1rem 2rem;
+  color: #00a2ff;
+  font-family: monospace;
+  font-size: 1.4rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  transition: all 0.3s ease;
+}
+
+.launch-button:hover {
+  background: rgba(0, 162, 255, 0.1);
+  box-shadow: 0 0 20px rgba(0, 162, 255, 0.3);
+}
+
+@media (max-width: 1200px) {
+  .content-wrapper {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .left-panel {
+    height: 40vh;
+  }
+
+  .right-panel {
+    padding: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  h1 {
+    font-size: 2.5rem;
+  }
+
+  h2 {
+    font-size: 2rem;
+  }
+
+  .description {
+    font-size: 1.1rem;
+  }
+
+  .launch-button {
+    font-size: 1.2rem;
+    padding: 0.8rem 1.6rem;
+  }
 } 
