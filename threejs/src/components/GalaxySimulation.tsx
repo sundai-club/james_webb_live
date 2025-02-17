@@ -127,9 +127,17 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
   useFrame((state) => {
     if (!orbitControlsRef.current) return;
     
-    // Rotate around Y axis (perpendicular to galaxy plane)
-    orbitControlsRef.current.autoRotateSpeed = 1.0;
-    orbitControlsRef.current.autoRotate = true;
+    const controls = orbitControlsRef.current;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.5;
+    
+    // Adjust rotation constraints for side view
+    controls.minPolarAngle = Math.PI / 3;    // About 60 degrees
+    controls.maxPolarAngle = Math.PI * 2/3;  // About 120 degrees
+    
+    // Set the up vector to Z instead of Y
+    controls.object.up.set(0, 0, 1);
+    controls.update();
   });
 
   return (
@@ -141,6 +149,8 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
         enableRotate={true}
         minDistance={5}
         maxDistance={100}
+        position={[20, 0, 0]}
+        up={[0, 0, 1]}
       />
       <points ref={starsRef}>
         <bufferGeometry>
