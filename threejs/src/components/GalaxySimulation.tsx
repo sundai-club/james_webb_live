@@ -124,7 +124,7 @@ const GalaxySimulation: React.FC<GalaxySimulationProps> = ({ initialData }) => {
     });
   }, []);
 
-  useFrame((state) => {
+  useFrame(() => {
     if (!orbitControlsRef.current) return;
     
     const controls = orbitControlsRef.current;
